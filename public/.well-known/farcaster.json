@@ -1,15 +1,15 @@
 {
   "accountAssociation": {
     "header": "eyJmaWQiOjE0NjA3LCJ0eXBlIjoiY3VzdG9keSIsImtleSI6IjB4NjYwRWNGQzM1OWU3OTIxMEFFMDAyOUFhOUVFNDgwQjg4NTM5ODhkOSJ9",
-    "payload": "eyJkb21haW4iOiJtb25hZC10cmVhc3VyZS1odW50LnZlcmNlbC5hcHAifQ",
-    "signature": "MHg2NjJkM2JhZGUyZDM4ZWFhMmEzMjA1MzYzZmVlYzZmMjFiYWNhODIwZjBhNGZmOWNmY2E3YWZjOGUwMDA1MzFhNDZhN2E1NGRlZTVlNjAxNDU0NTAxZWIyNDM3YjhjYmM1YThjY2VhNjlmMzRjNWZiOTBlOGZlNWJkNDM0MTFlNDFi"
+    "payload": "eyJkb21haW4iOiJtb25hZC1odW50LnZlcmNlbC5hcHAifQ",
+    "signature": "MHhjMGMyOTQ5ZmQ3MTg0MzdlZmRlMzMwMzFlOWUwNjdjMmM1NmFlNWM1NWIyZjIyMGI3ZjVkZGI4M2JhN2U3ZmQxMDJjMzNjYjg0NWEyY2MwMDIzZDVlYjk4MDQxNjYzNTg0ODZjODlkYjJhZWQwNTViZWUxYWNmZWNjYjlmYzQ5MDFi"
   },
   "frame": {
     "version": "1",
     "name": "Treasure Hunt",
-    "iconUrl": "https://monad-treasure-hunt.vercel.app/icon.png",
-    "homeUrl": "https://monad-treasure-hunt.vercel.app",
-    "splashImageUrl": "https://monad-treasure-hunt.vercel.app/splash.png",
+    "iconUrl": "https://monad-hunt.vercel.app/icon.png",
+    "homeUrl": "https://monad-hunt.vercel.app",
+    "splashImageUrl": "https://monad-hunt.vercel.app/splash.png",
     "splashBackgroundColor": "#eeccff",
     "subtitle": "Find the treasure",
     "description": "Find the treasure in this classic treasure hunt game.",
@@ -21,10 +21,10 @@
       "nft",
       "reward"
     ],
-    "heroImageUrl": "https://monad-treasure-hunt.vercel.app/cover.png",
+    "heroImageUrl": "https://monad-hunt.vercel.app/cover.png",
     "tagline": "Find the treasure",
     "ogTitle": "Treasure Hunt",
     "ogDescription": "Find the treasure in this classic treasure hunt game.",
-    "ogImageUrl": "https://monad-treasure-hunt.vercel.app/cover.png"
+    "ogImageUrl": "https://monad-hunt.vercel.app/cover.png"
   }
 }

@@ -10,7 +10,7 @@ const geistSans = GeistSans;
 const geistMono = GeistMono;
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://monad-treasure-hunt.vercel.app'), 
+  metadataBase: new URL('https://monad-hunt.vercel.app'), 
   title: "Treasure Hunt",
   description: "Find the treasure in this classic treasure hunt game.",
   openGraph: {
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
       },
     ],
     type: 'website',
-    url: 'https://monad-treasure-hunt.vercel.app/', // Add the canonical URL
+    url: 'https://monad-hunt.vercel.app/', 
   },
   // Add Farcaster frame meta tags
   other: {
@@ -33,14 +33,14 @@ export const metadata: Metadata = {
     // https://miniapps.farcaster.xyz/docs/guides/sharing
     'fc:frame': JSON.stringify({
       version: "next",
-      imageUrl: "https://monad-treasure-hunt.vercel.app/cover.png", // Use the cover image
+      imageUrl: "https://monad-hunt.vercel.app/cover.png", 
       button: {
         title: "Play Treasure Hunt",
         action: {
           type: "launch_frame",
-          url: "https://monad-treasure-hunt.vercel.app/",
+          url: "https://monad-hunt.vercel.app/",
           name: "Treasure Hunt",
-          splashImageUrl: "https://monad-treasure-hunt.vercel.app/logo200.png",
+          splashImageUrl: "https://monad-hunt.vercel.app/splash.png",
           splashBackgroundColor: "#111622"
         }
       }
