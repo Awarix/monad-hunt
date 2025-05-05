@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // Assuming PostgreSQL
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int       @id @default(autoincrement())
+  fid         Int       @unique // Farcaster ID is the key identifier
+  username    String?   // Optional: From Farcaster context
+  displayName String?   // Optional: From Farcaster context
+  pfpUrl      String?   // Optional: From Farcaster context
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  moves             Move[]     // Moves made by this user
+  locks             HuntLock[] // Locks held by this user (relation name for clarity)
+}
+
+model Hunt {
+  id                String    @id @default(cuid()) // Use cuid for unique IDs
+  name              String?
+  treasureType      TreasureType // Use Enum
+  treasurePositionX Int
+  treasurePositionY Int
+  maxSteps          Int       @default(10) // Add default
+  state             HuntState @default(ACTIVE) // Use Enum and set default
+  createdAt         DateTime  @default(now())
+  endedAt           DateTime?
+  lastMoveUserId    Int?      // FID of the user who made the last move
+  creatorFid        Int?
+
+  salt              String @db.VarChar(66)
+  moves        Move[]    // Sequence of moves in this hunt
+  lock         HuntLock? // Optional one-to-one relation to HuntLock
+}
+
+model Move {
+  id            Int      @id @default(autoincrement())
+  huntId        String
+  hunt          Hunt     @relation(fields: [huntId], references: [id], onDelete: Cascade) // Cascade delete moves if hunt deleted
+  userId        Int      // FID of the user who made the move
+  user          User     @relation(fields: [userId], references: [fid])
+  moveNumber    Int      // Sequence within the hunt (e.g., 1 to 10)
+  transactionHash String? @unique
+  positionX     Int
+  positionY     Int
+  hintGenerated String   // Store hint text generated for this move
+  timestamp     DateTime @default(now())
+
+  @@unique([huntId, moveNumber]) // Ensure move numbers are unique per hunt
+  @@index([huntId])
+  @@index([userId])
+}
+
+// Define Enums for TreasureType and GameState
+enum TreasureType {
+  COMMON
+  RARE
+  EPIC
+}
+
+enum HuntState {
+  // LOBBY // Removed for now, hunts are active on creation
+  ACTIVE
+  WON
+  LOST
+}
+
+model HuntLock {
+  huntId        String    @id // Links one-to-one with Hunt
+  playerFid     Int       // FID of the lock holder
+  expiresAt     DateTime
+  hunt          Hunt      @relation(fields: [huntId], references: [id], onDelete: Cascade) // Cascade delete lock if hunt deleted
+  user          User      @relation(fields: [playerFid], references: [fid])
+
+  @@index([playerFid]) // Index for faster lookup of locks by user
+} 
