@@ -1,7 +1,7 @@
 'use client'; 
 
 import Link from 'next/link';
-import React, { useState, useEffect, useCallback } from 'react'; 
+import React, { useState, useEffect, useCallback, useMemo } from 'react'; 
 import { useParams } from 'next/navigation'; 
 import { useFarcaster } from "@/components/providers/FarcasterProvider"; 
 // --- Wagmi Imports ---
@@ -12,7 +12,6 @@ import HuntMapNFTABI from '@/lib/abi/HuntMapNFTABI.json'; // ABI for the NFT con
 
 import Grid from '@/components/game/Grid';
 import GameHeader from '@/components/game/GameHeader';
-import GameFooter from '@/components/game/GameFooter'; 
 import HintPanel from '@/components/game/HintPanel'; 
 import StatusBar from '@/components/game/StatusBar'; 
 import type { FarcasterUser, HuntChannelPayload, Position } from '@/types'; 
@@ -64,7 +63,6 @@ export default function HuntPage() {
   const {
       data: makeMoveTxHash,
       error: makeMoveError,
-      isPending: isSubmittingToWallet,
       writeContractAsync
   } = useWriteContract();
 
@@ -109,7 +107,6 @@ export default function HuntPage() {
   const { 
       data: mintSubmitTxHash, // Hash after submitting to wallet
       error: mintSubmitError, 
-      isPending: isSubmittingMintToWallet, 
       writeContractAsync: mintNftAsync 
   } = useWriteContract();
 
@@ -252,9 +249,11 @@ export default function HuntPage() {
 
   // --- Derived State --- 
   const lastMove = huntDetails?.moves?.[huntDetails.moves.length - 1];
-  const currentPosition = lastMove 
-                          ? { x: lastMove.positionX, y: lastMove.positionY }
-                          : START_POSITION; // <-- Use START_POSITION as fallback
+  const currentPosition = useMemo(() => {
+    return lastMove 
+            ? { x: lastMove.positionX, y: lastMove.positionY }
+            : START_POSITION;
+  }, [lastMove]); 
   const hints = huntDetails?.moves?.map(move => move.hintGenerated) || [];
   const lastMoveUserId = huntDetails?.lastMoveUserId;
   const currentLock = huntDetails?.lock;
@@ -274,20 +273,20 @@ export default function HuntPage() {
     new Date() < new Date(currentLock.expiresAt);
 
   // --- Action Handlers --- 
-  const handleClaimTurn = useCallback(async () => {
-    if (!huntId || !userFid || !canUserClaimTurn) return;
+  // const handleClaimTurn = useCallback(async () => {
+  //   if (!huntId || !userFid || !canUserClaimTurn) return;
 
-    setPageError(null);
-    try {
-      const result = await claimHuntTurn(huntId, userFid);
-      if (!result.success) {
-        setPageError(result.error || "Failed to claim turn.");
-      }
-    } catch (err) {
-      console.error("Error claiming turn:", err);
-      setPageError(err instanceof Error ? err.message : "An unknown error occurred.");
-    }
-  }, [huntId, userFid, canUserClaimTurn]);
+  //   setPageError(null);
+  //   try {
+  //     const result = await claimHuntTurn(huntId, userFid);
+  //     if (!result.success) {
+  //       setPageError(result.error || "Failed to claim turn.");
+  //     }
+  //   } catch (err) {
+  //     console.error("Error claiming turn:", err);
+  //     setPageError(err instanceof Error ? err.message : "An unknown error occurred.");
+  //   }
+  // }, [huntId, userFid, canUserClaimTurn]);
 
   // --- New Move Handling Logic --- 
 
@@ -319,9 +318,15 @@ export default function HuntPage() {
       console.log("Transaction submitted to wallet, hash:", hash);
       setLastTxHash(hash);
       // Status will change to 'confirming' via the useWaitForTransactionReceipt hook effect
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error submitting transaction to wallet:", err);
-      const errorMsg = err.shortMessage || err.message || "Failed to submit transaction via wallet.";
+      // Simpler error handling (Fix #6d attempt 3)
+      let errorMsg = "Failed to submit transaction via wallet.";
+      if (err instanceof Error) {
+        errorMsg = err.message;
+      } else if (typeof err === 'string') {
+        errorMsg = err;
+      }
       setTxError(errorMsg);
       setTxStatus('error');
       setPendingMovePosition(null); // Clear pending move on error
@@ -329,7 +334,6 @@ export default function HuntPage() {
     // No finally block needed here, status updates handled by hooks/catch
   }, [
       huntId,
-      managerContractAddress,
       writeContractAsync,
       doesUserHoldActiveLock,
       isConnected,
@@ -384,7 +388,6 @@ export default function HuntPage() {
                   })
                   .finally(() => {
                       setPendingMovePosition(null); // Clear pending move after backend attempt
-                      // Don't clear lastTxHash immediately, might be useful for display
                   });
           } else {
               console.error(`Transaction ${lastTxHash} reverted. Receipt:`, receipt);
@@ -397,20 +400,17 @@ export default function HuntPage() {
 
       if (confirmationError) {
           console.error(`Error waiting for transaction ${lastTxHash} confirmation:`, confirmationError);
-          const errorMsg = (confirmationError as any).shortMessage || confirmationError.message || "Failed to confirm transaction.";
-          setTxError(errorMsg);
+         
           setTxStatus('error');
           setPendingMovePosition(null);
           return; // Important: exit after handling error
       }
 
        // Handle the case where the wallet submission itself failed earlier (makeMoveError)
-       // This might be redundant if initiateMoveTransaction catches it, but good for safety
       if (makeMoveError && !lastTxHash) { // Only if hash wasn't even generated
             console.error("Initial transaction submission error (from makeMoveError):", makeMoveError);
-            const errorMsg = (makeMoveError as any).shortMessage || makeMoveError.message || "Transaction submission failed.";
+            
             if (txStatus !== 'error') { // Avoid overwriting specific errors from initiateMoveTransaction
-                setTxError(errorMsg);
                 setTxStatus('error');
             }
             setPendingMovePosition(null);
@@ -422,12 +422,15 @@ export default function HuntPage() {
       isConfirmed,
       receipt,
       confirmationError,
-      makeMoveError, // Added makeMoveError dependency
+      makeMoveError,
       lastTxHash,
       huntId,
-      pendingMovePosition, // Add pendingMovePosition dependency
-      submitMove, // Add submitMove dependency
-      // loadHuntData // Don't add loadHuntData - rely on SSE or explicit refresh
+      pendingMovePosition,
+      submitMove,
+      // Added missing dependencies (Fix #8)
+      connectedAddress, 
+      txStatus, 
+      userFid
   ]);
 
   // --- NFT Eligibility Check Effect ---
@@ -512,7 +515,7 @@ export default function HuntPage() {
         // If backend failed, maybe re-check eligibility?
         refetchHasMinted(); 
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error calling claimNft action:", err);
       setClaimNftError(err instanceof Error ? err.message : "An unknown error occurred.");
       setClaimNftStatus('error');
@@ -546,9 +549,9 @@ export default function HuntPage() {
         console.log("Mint transaction submitted to wallet, hash:", hash);
         setMintTxHash(hash);
         // Status moves to 'confirming_mint' via effect below
-    } catch (err: any) {
-        console.error("Error submitting mint transaction to wallet:", err);
-        const errorMsg = err.shortMessage || err.message || "Failed to submit mint transaction via wallet.";
+    } catch {
+        console.error("Error submitting mint transaction to wallet:");
+        const errorMsg = "Failed to submit mint transaction via wallet."
         setClaimNftError(errorMsg);
         setClaimNftStatus('error'); 
         // Reset to allow retry? Maybe back to 'ready_to_mint' or 'eligible'?
@@ -584,7 +587,7 @@ export default function HuntPage() {
 
     if (mintConfirmationError) {
         console.error(`Error waiting for mint transaction ${mintSubmitTxHash} confirmation:`, mintConfirmationError);
-        const errorMsg = (mintConfirmationError as any).shortMessage || mintConfirmationError.message || "Failed to confirm mint transaction.";
+        const errorMsg = "Failed to confirm mint transaction.";
         setClaimNftError(errorMsg);
         setClaimNftStatus('error');
         return; // Exit after handling error
@@ -593,7 +596,7 @@ export default function HuntPage() {
     // Handle the case where the wallet submission itself failed earlier
     if (mintSubmitError && !mintSubmitTxHash) { 
         console.error("Initial mint submission error (from mintSubmitError):", mintSubmitError);
-        const errorMsg = (mintSubmitError as any).shortMessage  || "Mint transaction submission failed.";
+        const errorMsg = "Mint transaction submission failed."
          if (claimNftStatus !== 'error') { // Avoid overwriting
             setClaimNftError(errorMsg);
             setClaimNftStatus('error');
@@ -608,7 +611,8 @@ export default function HuntPage() {
       mintConfirmationError,
       mintSubmitError,
       mintSubmitTxHash,
-      refetchHasMinted // Include refetch function
+      refetchHasMinted,
+      claimNftStatus // Added missing dependency (Fix #10)
   ]);
 
   // --- Add helper function for Grid --- 

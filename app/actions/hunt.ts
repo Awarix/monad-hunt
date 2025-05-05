@@ -9,7 +9,6 @@ import { broadcastHuntUpdate, broadcastHuntsListUpdate } from '@/lib/hunt-broadc
 import { ethers } from 'ethers';
 import { 
     treasureHuntManagerContract, 
-    backendSigner, 
     provider, // Import provider for transaction watching
     treasureHuntManagerContractProvider, // Import provider instance for event parsing
     huntMapNFTContractProvider // Need provider instance for hasMinted check
@@ -382,7 +381,7 @@ export async function submitMove(
                             break;
                         }
                     }
-                } catch (parseError) { /* Ignore logs that don't match the ABI */ }
+                } catch {}
             }
         }
         if (!moveDataFromEvent) {

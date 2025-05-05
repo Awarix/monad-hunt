@@ -1,14 +1,6 @@
 import React from 'react';
 import { Position } from '@/types'; 
-import { GRID_SIZE, START_POSITION } from '@/lib/constants'; 
-
-interface CellProps {
-  isPlayer: boolean;
-  isPath: boolean;
-  isStart: boolean;
-  isTappable: boolean; 
-  onTap: () => void; 
-}
+import { GRID_SIZE } from '@/lib/constants'; 
 
 interface GridProps {
   playerPosition: Position;
