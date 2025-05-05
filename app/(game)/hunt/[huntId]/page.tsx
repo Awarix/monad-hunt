@@ -18,7 +18,6 @@ import type { FarcasterUser, HuntChannelPayload, Position } from '@/types';
 import { saveUserAction } from "@/app/actions/user"; 
 import { 
     getHuntDetails, 
-    claimHuntTurn, 
     submitMove, 
     HuntDetails, 
     SubmitResult,
