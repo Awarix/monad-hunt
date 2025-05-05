@@ -1,4 +1,4 @@
-import { ethers, Wallet, Contract, JsonRpcProvider } from 'ethers';
+import { Wallet, Contract, JsonRpcProvider } from 'ethers';
 import TreasureHuntManagerABI from '@/lib/abi/TreasureHuntManagerABI.json';
 import HuntMapNFTABI from '@/lib/abi/HuntMapNFTABI.json';
 

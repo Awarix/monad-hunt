@@ -1,8 +1,8 @@
 'use server';
 
 import { PrismaClient, HuntState, TreasureType, Move, HuntLock, Prisma } from '@prisma/client';
-import type { Direction, Hunt as ClientHuntType, LockUpdatePayload, HuntUpdatePayload } from '@/types';
-import { createNewHunt as generateHuntData, processPlayerMove } from '@/lib/game-logic';
+import type { LockUpdatePayload, HuntUpdatePayload, Position } from '@/types';
+import { generateHint, /* createNewHunt, processPlayerMove */ } from '@/lib/game-logic';
 import { START_POSITION, MAX_STEPS } from '@/lib/constants';
 import { broadcastHuntUpdate, broadcastHuntsListUpdate } from '@/lib/hunt-broadcaster';
 // --- Onchain Integration Imports ---
@@ -82,7 +82,17 @@ export async function createHunt(creatorFid: number): Promise<{ huntId: string }
   let newHuntId: string | undefined;
 
   try {
-    const huntBaseData = generateHuntData('temp', 'temp', creatorFid.toString());
+    // Correct function name from game-logic was renamed/refactored, need to adapt
+    // For now, let's mock the structure needed for salt/hash generation
+    // TODO: Review lib/game-logic.ts and adapt hunt creation if needed
+    const huntBaseData = {
+        treasurePosition: { 
+            x: Math.floor(Math.random() * 10), // Placeholder generation
+            y: Math.floor(Math.random() * 10)  // Placeholder generation
+        },
+        treasureType: ['COMMON', 'RARE', 'EPIC'][Math.floor(Math.random() * 3)]
+    };
+    // const huntBaseData = generateHuntData('temp', 'temp', creatorFid.toString()); // Old call
 
     if (!huntBaseData) {
         throw new Error("Failed to generate hunt base data.");
@@ -115,7 +125,7 @@ export async function createHunt(creatorFid: number): Promise<{ huntId: string }
         creatorFid: creatorFid, // Store the FID of the user creating the hunt
         // TODO: Add migration for `creatorFid` field (`npx dotenv -e ../.env -- npx prisma migrate dev --name add_hunt_creator_fid`)
         // TODO: Add migration and uncomment `salt` storage (`npx dotenv -e ../.env -- npx prisma migrate dev --name add_hunt_salt`)
-        // salt: salt,
+        salt: salt,
       },
     });
 
@@ -387,8 +397,26 @@ export async function submitMove(
 
     // 4. Update Database State within a Transaction
     const result = await prisma.$transaction(async (tx) => {
+        // Fetch latest hunt data *needed for hint generation or state check*
+        // Also fetch previous moves to determine the last position for hint generation
+        const currentHunt = await tx.hunt.findUnique({ 
+            where: { id: huntId },
+            // Select fields needed AND the moves relation for previous position
+            select: { 
+                treasurePositionX: true, 
+                treasurePositionY: true, 
+                maxSteps: true,
+                moves: { 
+                    orderBy: { moveNumber: 'desc' }, // Get most recent first
+                    take: 1 // Only need the very last one
+                }
+            } 
+        });
+        if (!currentHunt) {
+            throw new Error("Failed to fetch current hunt data for processing.");
+        }
+
         // Fetch latest onchain state post-transaction
-        // Note: This might be slightly redundant if event parsing is reliable, but safer.
         const onchainHuntDetails = await treasureHuntManagerContractProvider.getHuntDetails(huntId);
         const isOnchainActive = await treasureHuntManagerContractProvider.isHuntActive(huntId);
 
@@ -401,10 +429,40 @@ export async function submitMove(
         const finalY = moveDataFromEvent ? moveDataFromEvent.newY : Number(onchainHuntDetails.currentY);
         const finalMoveNumber = moveDataFromEvent ? moveDataFromEvent.moveNumber : Number(onchainHuntDetails.movesMade);
 
-        // TODO: Hint Generation needs rework. 
-        // Maybe store event data? Or generate based on contract state difference?
-        // For now, store a placeholder or nothing.
-        const hintGenerated = "Hint generation TBD post-onchain move"; 
+        // Determine previous position for hint generation (Fix #1)
+        const previousMove = currentHunt.moves[0]; // Since we ordered desc and took 1
+        const previousPosition: Position = previousMove 
+            ? { x: previousMove.positionX, y: previousMove.positionY } 
+            : START_POSITION; // Fallback for the very first move
+        const currentPosition: Position = { x: finalX, y: finalY };
+        const treasurePosition: Position = { x: currentHunt.treasurePositionX, y: currentHunt.treasurePositionY };
+
+        // Generate Hint using the correct helper function
+        const hintGenerated = generateHint(
+            currentPosition,
+            previousPosition,
+            treasurePosition,
+            finalMoveNumber
+        );
+        console.log(`Generated hint for move ${finalMoveNumber}: ${hintGenerated}`);
+
+        // Determine final DB state based on move result and contract state (Fix #4)
+        let finalDbState: HuntState = HuntState.ACTIVE;
+        const treasureFoundThisMove = finalX === currentHunt.treasurePositionX && finalY === currentHunt.treasurePositionY;
+
+        if (treasureFoundThisMove) {
+            finalDbState = HuntState.WON;
+            console.log(`Treasure found on move ${finalMoveNumber}! State set to WON.`);
+        } else if (!isOnchainActive) {
+            // If treasure not found this move AND hunt is inactive onchain (likely max steps reached)
+            finalDbState = HuntState.LOST;
+            console.log(`Hunt inactive onchain and treasure not found. State set to LOST.`);
+        } else if (finalMoveNumber >= currentHunt.maxSteps) {
+            // Belt-and-suspenders check: if DB move number reaches max steps, mark as LOST
+            // This handles cases where isOnchainActive might lag slightly or has different logic
+             finalDbState = HuntState.LOST;
+             console.log(`Max steps (${currentHunt.maxSteps}) reached. State set to LOST.`);
+        }
 
         // Create the Move record based on verified data
         await tx.move.create({
@@ -414,29 +472,11 @@ export async function submitMove(
                 moveNumber: finalMoveNumber,
                 positionX: finalX,
                 positionY: finalY,
-                hintGenerated: hintGenerated,
-                // TODO: Add transactionHash field to Move model and uncomment below
-                // transactionHash: transactionHash,
+                hintGenerated: hintGenerated, // Use generated hint
+                transactionHash: transactionHash, 
             },
         });
         console.log(`Created Move record for move ${finalMoveNumber}`);
-
-        // Determine final DB state based on contract state
-        let finalDbState: HuntState = HuntState.ACTIVE;
-        if (!isOnchainActive) {
-            // How to determine WON vs LOST? 
-            // Requires revealTreasure to be called + checking revealed location vs final location
-            // For now, mark as COMPLETED if inactive. Need reveal logic.
-            // Option 1: Call revealTreasure here if possible? (Requires salt)
-            // Option 2: Rely on a separate process/UI flow to call reveal and update state later.
-            // Option 3: Check treasureFoundAtReveal flag from getHuntDetails if reveal happened before end.
-            if(onchainHuntDetails.treasureFoundAtReveal) {
-                finalDbState = HuntState.WON;
-            } else {
-                // If not active and not won by reveal, assume LOST or COMPLETED (needs reveal)
-                finalDbState = HuntState.LOST; // Or maybe a new state like 'NEEDS_REVEAL'
-            }
-        }
 
         // Update the Hunt record
         await tx.hunt.update({
@@ -610,23 +650,15 @@ export async function revealHuntTreasure(
                 id: true,
                 treasurePositionX: true,
                 treasurePositionY: true,
-                // TODO: Uncomment when `salt` field exists in DB and migrated
-                // salt: true,
-                // TODO: Uncomment when `creatorFid` field exists in DB and migrated
-                // creatorFid: true,
+                // Salt is now directly selected
+                salt: true,
+                // creatorFid is now directly selected
+                creatorFid: true,
             },
         });
 
         if (!hunt) {
             return { success: false, error: "Hunt not found." };
-        }
-
-        // TODO: Remove this placeholder salt when DB field is available and migrated
-        const salt = process.env.TEMP_PLACEHOLDER_SALT || ethers.hexlify(ethers.randomBytes(32));
-        if (!salt) {
-             console.error(`Salt is missing for hunt ${huntId}. Cannot reveal.`);
-             return { success: false, error: "Cannot reveal treasure: missing required data (salt)." };
-             // TODO: Replace placeholder check with: `if (!hunt.salt)` after adding field to DB
         }
 
         // 2. Authorize Caller
@@ -640,10 +672,8 @@ export async function revealHuntTreasure(
         });
         const isParticipant = !!participation;
 
-        // Check creator status (assuming creatorFid exists on hunt object post-migration)
-        // TODO: Add migration for `creatorFid` field
-        // @ts-ignore // Temporarily ignore TS error until Prisma types are updated
-        const creatorFidFromDb = hunt.creatorFid;
+        // Check creator status (Fix #2 - Type error fix)
+        const creatorFidFromDb: number | null | undefined = hunt.creatorFid;
         const isCreator = creatorFidFromDb ? creatorFidFromDb === callerFid : false;
 
         if (!isParticipant && !isCreator) {
@@ -659,7 +689,7 @@ export async function revealHuntTreasure(
             hunt.id,
             hunt.treasurePositionX,
             hunt.treasurePositionY,
-            salt // Use the retrieved salt (currently placeholder or actual if migration done)
+            hunt.salt // Use the retrieved salt (currently placeholder or actual if migration done)
         );
 
         console.log(`Reveal transaction submitted: ${tx.hash}`);

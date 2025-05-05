@@ -1,19 +1,16 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
 import "./globals.css";
 import { WalletProvider } from "@/components/providers/WalletProvider";
 import FarcasterProvider from "@/components/providers/FarcasterProvider";
 
-// const inter = Inter({ subsets: ["latin"] });
-
 // Use GeistSans and GeistMono
 const geistSans = GeistSans;
 const geistMono = GeistMono;
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://monad-treasure-hunt.vercel.app'), // Set base URL for relative paths
+  metadataBase: new URL('https://monad-treasure-hunt.vercel.app'), 
   title: "Treasure Hunt",
   description: "Find the treasure in this classic treasure hunt game.",
   openGraph: {

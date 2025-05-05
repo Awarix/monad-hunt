@@ -32,7 +32,7 @@ model Hunt {
   lastMoveUserId    Int?      // FID of the user who made the last move
   creatorFid        Int?
 
-  salt              String @db.VarChar(66)
+  salt              String? @db.VarChar(66) // Made optional temporarily
   moves        Move[]    // Sequence of moves in this hunt
   lock         HuntLock? // Optional one-to-one relation to HuntLock
 }

@@ -1,7 +1,6 @@
 'use client';
 
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
-import { injected } from 'wagmi/connectors' // Or use farcasterFrame directly if needed
 import { shortenAddress } from '@/lib/utils'; // Assuming a utility function exists
 
 export function ConnectWalletButton() {
