@@ -62,6 +62,12 @@ export default function HuntPage() {
   const [isClaimingTurn, setIsClaimingTurn] = useState(false);
   const [claimTurnError, setClaimTurnError] = useState<string | null>(null);
 
+  // --- Wagmi Status Logging ---
+  useEffect(() => {
+    console.log('[Wagmi Account Status] isConnected:', isConnected, 'Address:', connectedAddress);
+  }, [isConnected, connectedAddress]);
+  // --------------------------
+
   // --- Move Transaction Wagmi Hooks ---
   const {
       data: makeMoveTxHash,
@@ -224,12 +230,20 @@ export default function HuntPage() {
 
                 if (payload.type === 'hunt_update') {
                     console.log("SSE: Applying full hunt update");
-                    setHuntDetails(payload.details); 
+                    const updatedDetails = payload.details;
+                    if (updatedDetails.lock && typeof updatedDetails.lock.expiresAt === 'string') {
+                        updatedDetails.lock.expiresAt = new Date(updatedDetails.lock.expiresAt);
+                    }
+                    setHuntDetails(updatedDetails); 
                 } else if (payload.type === 'lock_update') {
                     console.log("SSE: Applying lock update");
+                    const newLock = payload.lock;
+                    if (newLock && typeof newLock.expiresAt === 'string') {
+                        newLock.expiresAt = new Date(newLock.expiresAt);
+                    }
                     setHuntDetails(prev => {
-                        if (!prev) return { lock: payload.lock } as HuntDetails;
-                        return { ...prev, lock: payload.lock };
+                        if (!prev) return { lock: newLock } as HuntDetails;
+                        return { ...prev, lock: newLock };
                     });
                 } else {
                     console.warn("SSE: Received known payload object but unknown type");
