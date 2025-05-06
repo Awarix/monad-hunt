@@ -61,6 +61,8 @@ const TurnTimer: React.FC<TurnTimerProps> = ({ expiresAt, onExpire }) => {
 
   }, [expiresAt, onExpire, calculateRemainingSeconds]); 
 
+  console.log('[TurnTimer Debug] expiresAt:', expiresAt, 'remainingSeconds:', remainingSeconds, 'isExpired:', isExpired);
+
   if (!expiresAt) {
     return null; 
   }
