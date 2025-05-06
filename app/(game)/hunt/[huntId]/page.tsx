@@ -22,7 +22,8 @@ import {
     HuntDetails, 
     SubmitResult,
     claimNft,
-    revealHuntTreasure
+    revealHuntTreasure,
+    claimHuntTurn
 } from '@/app/actions/hunt';
 import { HuntState } from '@prisma/client'; 
 import { START_POSITION, GRID_SIZE } from '@/lib/constants'; 
@@ -57,6 +58,9 @@ export default function HuntPage() {
   const [txError, setTxError] = useState<string | null>(null);
   const [lastTxHash, setLastTxHash] = useState<`0x${string}` | undefined>(undefined);
   const [isHintPanelOpen, setIsHintPanelOpen] = useState(false);
+  // --- Claim Turn State ---
+  const [isClaimingTurn, setIsClaimingTurn] = useState(false);
+  const [claimTurnError, setClaimTurnError] = useState<string | null>(null);
 
   // --- Move Transaction Wagmi Hooks ---
   const {
@@ -223,7 +227,10 @@ export default function HuntPage() {
                     setHuntDetails(payload.details); 
                 } else if (payload.type === 'lock_update') {
                     console.log("SSE: Applying lock update");
-                    setHuntDetails(prev => prev ? { ...prev, lock: payload.lock } : null);
+                    setHuntDetails(prev => {
+                        if (!prev) return { lock: payload.lock } as HuntDetails;
+                        return { ...prev, lock: payload.lock };
+                    });
                 } else {
                     console.warn("SSE: Received known payload object but unknown type");
                 }
@@ -244,7 +251,7 @@ export default function HuntPage() {
         eventSource.close();
     };
 
-  }, [huntId]);
+  }, [huntId]); // Removed loadHuntData from here unless strictly necessary for SSE re-init
 
   // --- Derived State --- 
   const lastMove = huntDetails?.moves?.[huntDetails.moves.length - 1];
@@ -271,21 +278,59 @@ export default function HuntPage() {
     currentLock.playerFid === userFid && 
     new Date() < new Date(currentLock.expiresAt);
 
-  // --- Action Handlers --- 
-  // const handleClaimTurn = useCallback(async () => {
-  //   if (!huntId || !userFid || !canUserClaimTurn) return;
+  const canAttemptMove = useMemo(() => {
+    if (!huntDetails || !currentUser || huntDetails.state !== HuntState.ACTIVE) return false;
+    // Check if there's an active lock FOR THE CURRENT USER
+    const currentLock = huntDetails.lock;
+    if (currentLock && currentLock.playerFid === currentUser.fid && new Date(currentLock.expiresAt) > new Date()) {
+      return true; // User has the lock and it's active
+    }
+    return false; // No active lock for the current user
+  }, [huntDetails, currentUser]);
 
-  //   setPageError(null);
-  //   try {
-  //     const result = await claimHuntTurn(huntId, userFid);
-  //     if (!result.success) {
-  //       setPageError(result.error || "Failed to claim turn.");
-  //     }
-  //   } catch (err) {
-  //     console.error("Error claiming turn:", err);
-  //     setPageError(err instanceof Error ? err.message : "An unknown error occurred.");
-  //   }
-  // }, [huntId, userFid, canUserClaimTurn]);
+  const canClaimTurn = useMemo(() => {
+    if (!huntDetails || !currentUser || huntDetails.state !== HuntState.ACTIVE) return false;
+    if (huntDetails.lastMoveUserId === currentUser.fid) return false; // Cannot claim if they made the last move
+    
+    const currentLock = huntDetails.lock;
+    if (currentLock && currentLock.playerFid !== currentUser.fid && new Date(currentLock.expiresAt) > new Date()) {
+        return false; // Locked by someone else and lock is active
+    }
+    // Can claim if: no lock, or lock expired (for anyone), or it's our lock but expired.
+    if (currentLock && new Date(currentLock.expiresAt) <= new Date()) {
+        return true; // Lock expired, anyone eligible can claim
+    }
+    if (!currentLock) {
+        return true; // No lock, anyone eligible can claim
+    }
+    return false; // Default to false if other conditions for claiming aren't met (e.g. user has an active lock already)
+  }, [huntDetails, currentUser]);
+
+  // --- Action Handlers --- 
+  const handleClaimTurn = async () => {
+    if (!huntId || !currentUser?.fid) {
+      setClaimTurnError("Cannot claim turn: missing hunt ID or user information.");
+      return;
+    }
+    setIsClaimingTurn(true);
+    setClaimTurnError(null);
+    try {
+      const result = await claimHuntTurn(huntId, currentUser.fid);
+      if (result.error) {
+        setClaimTurnError(result.error);
+        // SSE should update the lock status, so no direct state update here for huntDetails.lock
+      } else {
+        // Lock successfully claimed. SSE will deliver the lock update to all clients, 
+        // including this one, which will then update huntDetails.lock and trigger timer in StatusBar.
+        console.log("Claim turn action successful, expecting SSE update. Lock details from action:", result.lock);
+      }
+    } catch (error: any) {
+      console.error("Error claiming turn:", error);
+      setClaimTurnError(error.message || "An unexpected error occurred while claiming turn.");
+    } finally {
+      setIsClaimingTurn(false);
+    }
+  };
 
   // --- New Move Handling Logic --- 
 
@@ -737,6 +782,13 @@ export default function HuntPage() {
   const showProcessingMove = txStatus === 'submitting' || txStatus === 'confirming' || txStatus === 'updating_db';
   const allowGridInteraction = doesUserHoldActiveLock && !showProcessingMove && txStatus !== 'error'; // Allow clicks only if it's user's turn and no tx active/error
 
+  // Style for buttons (reusable)
+  const actionButtonStyle = `
+    w-full sm:w-auto mt-4 px-6 py-3 rounded-lg font-semibold text-white 
+    bg-purple-600 hover:bg-purple-700 disabled:bg-gray-500 
+    transition duration-150 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-opacity-75
+  `;
+
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-purple-950 via-indigo-950 to-black text-white font-sans overflow-hidden">
       
@@ -944,6 +996,27 @@ export default function HuntPage() {
         </div>
       )}
       {/* --- End NFT Claim Section --- */}
+
+      {isHuntActive && (
+          <div className="mt-6 flex flex-col items-center">
+              {!canAttemptMove && canClaimTurn && (
+                  <button
+                      onClick={handleClaimTurn}
+                      disabled={isClaimingTurn || !isConnected || !currentUser}
+                      className={actionButtonStyle + ` bg-green-600 hover:bg-green-700 focus:ring-green-400`}
+                  >
+                      {isClaimingTurn ? 'Claiming...' : 'Claim Turn'}
+                  </button>
+              )}
+              {claimTurnError && <p className="mt-2 text-sm text-red-400" style={redGlowStyle}>{claimTurnError}</p>}
+
+              {canAttemptMove && (
+                   <p className="text-lg text-cyan-300 font-semibold animate-pulse" style={accentGlowStyle}>
+                      Your turn! Select an adjacent cell.
+                  </p>
+              )}
+          </div>
+      )}
 
     </div>
   );
