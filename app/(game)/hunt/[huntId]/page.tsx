@@ -998,7 +998,7 @@ export default function HuntPage() {
       {/* --- End NFT Claim Section --- */}
 
       {isHuntActive && (
-          <div className="mt-6 flex flex-col items-center">
+          <div className="mt-6 flex flex-col items-center relative z-51"> 
               {!canAttemptMove && canClaimTurn && (
                   <button
                       onClick={handleClaimTurn}
