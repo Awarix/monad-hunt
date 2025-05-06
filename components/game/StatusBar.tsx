@@ -10,6 +10,7 @@ interface StatusBarProps {
   txStatus: 'idle' | 'submitting' | 'confirming' | 'updating_db' | 'error' | 'success';
   txError: string | null;
   lastTxHash: `0x${string}` | undefined;
+  blockExplorerUrl: string;
 }
 
 const getStatusMessage = (
@@ -55,12 +56,15 @@ const StatusBar: React.FC<StatusBarProps> = ({
   lastMoveUserId,
   txStatus,
   txError,
-  lastTxHash
+  lastTxHash,
+  blockExplorerUrl
 }) => {
   const statusMessage = getStatusMessage(status, currentLock, userFid, lastMoveUserId);
   const txMessage = getTxStatusMessage(txStatus, txError);
 
-  const isMyLockedTurn = currentLock && currentLock.playerFid === userFid && new Date(currentLock.expiresAt) > new Date();
+  const isMyLockedTurn = currentLock && currentLock.playerFid === userFid && new Date(currentLock.expiresAt).getTime() > new Date().getTime();
+
+  console.log('[StatusBar Debug] isMyLockedTurn:', isMyLockedTurn, 'txStatus:', txStatus, 'currentLock:', currentLock, 'userFid:', userFid, 'currentLock?.expiresAt type:', typeof currentLock?.expiresAt, 'isDate:', currentLock?.expiresAt instanceof Date);
 
 //   const claimButtonStyle = `
 //     px-5 py-2.5 rounded-lg border border-[var(--color-highlight)] 
@@ -82,7 +86,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
                 {txMessage}
                 {txStatus === 'confirming' && lastTxHash && (
                     <a 
-                        href={`https://testnet.monadexplorer.com/tx/${lastTxHash}`} 
+                        href={`${blockExplorerUrl}/tx/${lastTxHash}`} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="ml-2 text-blue-400 hover:underline text-xs"
@@ -96,7 +100,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
         )}
       
       {/* Show Timer only if it's my locked turn and no tx is in progress */}
-      {isMyLockedTurn && txStatus === 'idle' && currentLock && (
+      {isMyLockedTurn && txStatus === 'idle' && currentLock && currentLock.expiresAt && (
         <TurnTimer expiresAt={currentLock.expiresAt} />
       )}
     </div>

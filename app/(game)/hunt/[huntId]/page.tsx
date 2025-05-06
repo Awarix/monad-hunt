@@ -825,6 +825,7 @@ export default function HuntPage() {
             txStatus={txStatus}
             txError={txError}
             lastTxHash={lastTxHash}
+            blockExplorerUrl={blockExplorerUrl}
           />
       )}
 
