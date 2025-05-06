@@ -8,6 +8,7 @@ import { useFarcaster } from "@/components/providers/FarcasterProvider";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import TreasureHuntManagerABI from '@/lib/abi/TreasureHuntManagerABI.json'; // Use path alias to copied ABI
 import HuntMapNFTABI from '@/lib/abi/HuntMapNFTABI.json'; // ABI for the NFT contract
+import { ethers } from 'ethers';
 // -------------------
 
 import Grid from '@/components/game/Grid';
@@ -367,11 +368,17 @@ export default function HuntPage() {
     setLastTxHash(undefined); // Clear previous hash
 
     try {
+      // Convert string huntId to a BigInt representation (e.g., by hashing)
+      // This assumes the contract stores huntId as a uint256 derived from the string ID.
+      // ethers.id() produces a bytes32 hex string (keccak256 hash).
+      // BigInt() can convert this hex string to a BigInt.
+      const numericHuntId = BigInt(ethers.id(huntId));
+
       const hash = await writeContractAsync({
         address: managerContractAddress,
         abi: TreasureHuntManagerABI.abi,
         functionName: 'makeMove',
-        args: [huntId, targetX, targetY],
+        args: [numericHuntId, targetX, targetY], // Use numericHuntId
       });
       console.log("Transaction submitted to wallet, hash:", hash);
       setLastTxHash(hash);
