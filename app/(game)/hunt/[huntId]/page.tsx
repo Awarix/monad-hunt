@@ -324,9 +324,9 @@ export default function HuntPage() {
         // including this one, which will then update huntDetails.lock and trigger timer in StatusBar.
         console.log("Claim turn action successful, expecting SSE update. Lock details from action:", result.lock);
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error claiming turn:", error);
-      setClaimTurnError(error.message || "An unexpected error occurred while claiming turn.");
+      setClaimTurnError( "An unexpected error occurred while claiming turn.");
     } finally {
       setIsClaimingTurn(false);
     }
