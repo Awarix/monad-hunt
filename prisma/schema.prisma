@@ -67,6 +67,8 @@ enum HuntState {
   ACTIVE
   WON
   LOST
+  PENDING_CREATION // New
+  FAILED_CREATION 
 }
 
 model HuntLock {

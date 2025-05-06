@@ -79,6 +79,7 @@ export async function createHunt(creatorFid: number): Promise<{ huntId: string }
   let treasureLocationHash: string | undefined;
   // ---------------------------------------------
   let newHuntId: string | undefined;
+  let numericHuntIdForCreation: bigint | undefined;
 
   try {
     // Correct function name from game-logic was renamed/refactored, need to adapt
@@ -109,30 +110,32 @@ export async function createHunt(creatorFid: number): Promise<{ huntId: string }
         ["uint8", "uint8", "bytes32"],
         [huntBaseData.treasurePosition.x, huntBaseData.treasurePosition.y, salt]
     );
-    console.log(`Generated Salt: ${salt}`); // Log for temporary debugging, remove later
-    console.log(`Generated Hash: ${treasureLocationHash}`);
+    // console.log(`Generated Salt: ${salt}`); 
+    // console.log(`Generated Hash: ${treasureLocationHash}`);
     // ---------------------------------------------
 
-    const newHunt = await prisma.hunt.create({
+    // Create DB entry first to get the CUID
+    const newHuntDBRecord = await prisma.hunt.create({
       data: {
         name: `Hunt created by ${creatorFid}`,
         treasureType: treasureTypePrismaEnum,
         treasurePositionX: huntBaseData.treasurePosition.x,
         treasurePositionY: huntBaseData.treasurePosition.y,
         maxSteps: MAX_STEPS,
-        state: HuntState.ACTIVE,
-        creatorFid: creatorFid, // Store the FID of the user creating the hunt
-        // TODO: Add migration for `creatorFid` field (`npx dotenv -e ../.env -- npx prisma migrate dev --name add_hunt_creator_fid`)
-        // TODO: Add migration and uncomment `salt` storage (`npx dotenv -e ../.env -- npx prisma migrate dev --name add_hunt_salt`)
+        state: HuntState.PENDING_CREATION, // Uses the new enum value
+        creatorFid: creatorFid, 
         salt: salt,
       },
     });
 
-    newHuntId = newHunt.id;
-    console.log(`Hunt created in DB with ID: ${newHunt.id}`);
+    newHuntId = newHuntDBRecord.id;
+    console.log(`Hunt PENDING_CREATION in DB with ID: ${newHuntId}`);
+
+    // Convert string CUID to numeric ID for contract interaction
+    numericHuntIdForCreation = BigInt(ethers.id(newHuntId));
 
     // --- Onchain Integration: Call Contract ---
-    console.log(`Calling TreasureHuntManager.createHunt for DB Hunt ID: ${newHunt.id}...`);
+    console.log(`Calling TreasureHuntManager.createHunt for numericHuntId: ${numericHuntIdForCreation} (derived from DB ID: ${newHuntId})...`);
     // Map treasure type string to uint8 for the contract
     let treasureTypeContractUint: number;
     switch (huntBaseData.treasureType) {
@@ -143,22 +146,29 @@ export async function createHunt(creatorFid: number): Promise<{ huntId: string }
     }
 
     const tx = await treasureHuntManagerContract.createHunt(
-        newHunt.id, // Use the DB Hunt ID
-        treasureTypeContractUint, // Pass the mapped uint8
+        numericHuntIdForCreation, // Use the numeric/BigInt version
+        treasureTypeContractUint, 
         MAX_STEPS,
         treasureLocationHash
     );
 
-    console.log(`Transaction submitted: ${tx.hash}`);
-    const receipt = await tx.wait(); // Wait for transaction confirmation
+    console.log(`Transaction submitted: ${tx.hash}, waiting for confirmation...`);
+    const receipt = await tx.wait(); 
     console.log(`Transaction confirmed in block: ${receipt.blockNumber}`);
+
+    // If onchain creation is successful, update DB state to ACTIVE
+    await prisma.hunt.update({
+        where: { id: newHuntId },
+        data: { state: HuntState.ACTIVE, onchainHuntId: numericHuntIdForCreation.toString() }, 
+    });
+    console.log(`Hunt ID ${newHuntId} successfully created onchain and marked ACTIVE in DB.`);
     // -----------------------------------------
 
     // --- Broadcast List Update --- 
     await broadcastHuntsListUpdate();
     // ---------------------------
 
-    return { huntId: newHunt.id };
+    return { huntId: newHuntDBRecord.id };
 
   } catch (error) {
     console.error("Error creating hunt:", error);
@@ -166,8 +176,12 @@ export async function createHunt(creatorFid: number): Promise<{ huntId: string }
     // If the contract call failed after DB creation, we might want to mark the DB entry as failed
     // or attempt to delete it. For now, just log and return error.
     if (newHuntId) {
-        console.error(`Failed to complete onchain creation for DB Hunt ID: ${newHuntId}. DB entry might be orphaned.`);
-        // Optional: await prisma.hunt.update({ where: { id: newHuntId }, data: { state: HuntState.FAILED } });
+        console.error(`Failed to complete onchain creation for DB Hunt ID: ${newHuntId}. Corresponding numeric ID: ${numericHuntIdForCreation}.`);
+        // Mark hunt as FAILED in DB if onchain step failed
+        await prisma.hunt.update({
+            where: { id: newHuntId },
+            data: { state: HuntState.FAILED_CREATION }, // Uses the new enum value
+        });
     }
     // -----------------------------------------
     return { error: error instanceof Error ? error.message : "An unknown error occurred during hunt creation." };
