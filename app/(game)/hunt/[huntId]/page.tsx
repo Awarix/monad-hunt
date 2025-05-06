@@ -5,10 +5,11 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation'; 
 import { useFarcaster } from "@/components/providers/FarcasterProvider"; 
 // --- Wagmi Imports ---
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useSwitchChain } from 'wagmi';
 import TreasureHuntManagerABI from '@/lib/abi/TreasureHuntManagerABI.json'; // Use path alias to copied ABI
 import HuntMapNFTABI from '@/lib/abi/HuntMapNFTABI.json'; // ABI for the NFT contract
 import { ethers } from 'ethers';
+import { monadTestnet } from '@/lib/chains'; // Import monadTestnet chain definition
 // -------------------
 
 import Grid from '@/components/game/Grid';
@@ -40,14 +41,15 @@ const redGlowStyle = {
 const managerContractAddress = process.env.NEXT_PUBLIC_TREASURE_HUNT_MANAGER_ADDRESS as `0x${string}` | undefined;
 const nftContractAddress = process.env.NEXT_PUBLIC_HUNT_MAP_NFT_ADDRESS as `0x${string}` | undefined;
 // Get block explorer URL from environment variable
-const blockExplorerUrl = process.env.NEXT_PUBLIC_MONAD_EXPLORER_URL || "https://explorer.testnet.monad.xyz"; // Provide fallback
+const blockExplorerUrl = process.env.NEXT_PUBLIC_MONAD_EXPLORER_URL || "https://testnet.monadexplorer.com/"; // Updated fallback
 
 export default function HuntPage() {
   const params = useParams<{ huntId: string }>(); 
   const huntId = params.huntId; 
   const { isLoaded: isFarcasterLoaded, frameContext, error: providerError } = useFarcaster(); 
   // --- Wagmi Account Hook ---
-  const { address: connectedAddress, isConnected } = useAccount();
+  const { address: connectedAddress, isConnected, chainId } = useAccount();
+  const { switchChain, isPending: isSwitchingChain, error: switchChainError } = useSwitchChain();
   // -------------------------
 
   // --- State Management: Use the Hunt object --- 
@@ -809,6 +811,33 @@ export default function HuntPage() {
     bg-purple-600 hover:bg-purple-700 disabled:bg-gray-500 
     transition duration-150 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-opacity-75
   `;
+
+  // --- Network Check --- 
+  if (isConnected && chainId !== monadTestnet.id) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-purple-900 text-gray-100 flex flex-col items-center justify-center p-4">
+        <div className="bg-gray-800 p-8 rounded-lg shadow-xl text-center">
+          <h2 className="text-2xl font-semibold mb-4 text-yellow-400">Incorrect Network</h2>
+          <p className="mb-6 text-gray-300">Please switch your wallet to the Monad Testnet to play.</p>
+          {switchChain ? (
+            <button
+              onClick={() => switchChain({ chainId: monadTestnet.id })}
+              className={actionButtonStyle + ` bg-yellow-500 hover:bg-yellow-600 focus:ring-yellow-400 text-black`}
+              disabled={isSwitchingChain} // Disable while switching
+            >
+              {isSwitchingChain ? 'Switching Network...' : 'Switch to Monad Testnet'}
+            </button>
+          ) : (
+            <p className="text-gray-400">Your wallet does not support programmatic chain switching. Please switch manually in your wallet.</p>
+          )}
+          {switchChainError && (
+            <p className="mt-2 text-sm text-red-400">Error switching network: {switchChainError.message}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+  // ---------------------
 
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-purple-950 via-indigo-950 to-black text-white font-sans overflow-hidden">
