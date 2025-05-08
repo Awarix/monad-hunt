@@ -33,6 +33,7 @@ model Hunt {
   creatorFid        Int?
 
   salt              String? @db.VarChar(66) // Made optional temporarily
+  onchainHuntId     String? @unique // Numeric ID used onchain (stored as string)
   moves        Move[]    // Sequence of moves in this hunt
   lock         HuntLock? // Optional one-to-one relation to HuntLock
 }

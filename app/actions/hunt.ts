@@ -38,6 +38,7 @@ export interface HuntDetails {
   createdAt: Date;
   endedAt: Date | null;
   lastMoveUserId: number | null;
+  onchainHuntId?: string | null;
   moves: Move[];
   lock: HuntLock | null;
 }
@@ -331,20 +332,25 @@ export async function submitMove(
   console.log(`submitMove called for hunt ${huntId} by FID ${submitterFid}, address: ${submitterWalletAddress}, txHash: ${transactionHash}`);
 
   try {
-    // 1. Validate Lock (still important to ensure user had permission when initiating tx)
-    const lock = await prisma.huntLock.findUnique({ where: { huntId } });
-    // Find hunt details needed for validation/update
-    const hunt = await prisma.hunt.findUnique({ 
-        where: { id: huntId }, 
-        select: { state: true, id: true } // Select only needed fields
-    }); 
+    // 1. Validate Lock & Fetch Onchain ID
+    const huntLock = await prisma.huntLock.findUnique({ where: { huntId } });
+    const huntData = await prisma.hunt.findUnique({
+        where: { id: huntId }, // huntId is CUID
+        select: { state: true, id: true, onchainHuntId: true } // Fetch onchainHuntId
+    });
 
-    if (!hunt) return { success: false, error: "Hunt not found." };
-    // We check ACTIVE state here, but the contract is the source of truth after tx
-    if (hunt.state !== HuntState.ACTIVE) return { success: false, error: "Hunt is already finished (according to DB)." }; 
-    if (!lock) return { success: false, error: "You do not have the lock for this hunt." };
-    if (lock.playerFid !== submitterFid) return { success: false, error: `Lock held by FID ${lock.playerFid}, not you (${submitterFid}).` };
-    if (lock.expiresAt < new Date()) {
+    if (!huntData) return { success: false, error: "Hunt not found." };
+    if (!huntData.onchainHuntId) {
+        console.error(`submitMove: Hunt ${huntId} (CUID) is missing its onchainHuntId.`);
+        return { success: false, error: "Hunt's onchain identifier is missing. Cannot process move." };
+    }
+    const numericOnchainHuntId = BigInt(huntData.onchainHuntId); // For contract calls and event comparison
+
+    // We check ACTIVE state here from DB, but the contract is the ultimate source of truth after tx
+    if (huntData.state !== HuntState.ACTIVE) return { success: false, error: "Hunt is already finished (according to DB)." };
+    if (!huntLock) return { success: false, error: "You do not have the lock for this hunt." };
+    if (huntLock.playerFid !== submitterFid) return { success: false, error: `Lock held by FID ${huntLock.playerFid}, not you (${submitterFid}).` };
+    if (huntLock.expiresAt < new Date()) {
         // NOTE: Even if lock expired *after* tx submission but *before* this check,
         // the onchain transaction might still succeed if it was mined quickly.
         // The contract's `makeMove` does NOT check the off-chain lock.
@@ -382,8 +388,9 @@ export async function submitMove(
                     if (parsedLog && parsedLog.name === 'MoveMade') {
                         // Ensure args exist and have expected types/names based on ABI
                         // Compare event player address with the address passed from frontend
-                        if (parsedLog.args && 
-                            parsedLog.args.huntId === huntId && 
+                        // Compare numeric onchainHuntId with the one from the event
+                        if (parsedLog.args &&
+                            parsedLog.args.huntId === numericOnchainHuntId && 
                             parsedLog.args.player.toLowerCase() === submitterWalletAddress.toLowerCase()
                         ) { 
                             moveDataFromEvent = {
@@ -430,8 +437,9 @@ export async function submitMove(
         }
 
         // Fetch latest onchain state post-transaction
-        const onchainHuntDetails = await treasureHuntManagerContractProvider.getHuntDetails(huntId);
-        const isOnchainActive = await treasureHuntManagerContractProvider.isHuntActive(huntId);
+        // Use numericOnchainHuntId for contract calls
+        const onchainHuntDetails = await treasureHuntManagerContractProvider.getHuntDetails(numericOnchainHuntId);
+        const isOnchainActive = await treasureHuntManagerContractProvider.isHuntActive(numericOnchainHuntId);
 
         if (!onchainHuntDetails) {
             throw new Error("Failed to fetch hunt details from contract after move.");
@@ -559,12 +567,18 @@ export async function claimNft(
                 id: true,
                 state: true,
                 treasureType: true,
+                onchainHuntId: true // Fetch onchainHuntId
             },
         });
 
         if (!hunt) {
             return { success: false, error: "Hunt not found." };
         }
+        if (!hunt.onchainHuntId) {
+            console.error(`claimNft: Hunt ${huntId} (CUID) is missing its onchainHuntId.`);
+            return { success: false, error: "Hunt's onchain identifier is missing. Cannot claim NFT." };
+        }
+        const numericOnchainHuntId = BigInt(hunt.onchainHuntId); // For contract calls
 
         if (hunt.state !== HuntState.WON && hunt.state !== HuntState.LOST) {
             return { success: false, error: "Hunt is not yet completed." };
@@ -582,7 +596,8 @@ export async function claimNft(
 
         // 3. Check if Already Minted Onchain
         try {
-            const alreadyMinted = await huntMapNFTContractProvider.hasMinted(huntId, callerWalletAddress);
+            // Use numericOnchainHuntId for the contract call
+            const alreadyMinted = await huntMapNFTContractProvider.hasMinted(numericOnchainHuntId, callerWalletAddress);
             if (alreadyMinted) {
                 return { success: false, error: "You have already minted an NFT for this hunt." };
             }
@@ -656,23 +671,30 @@ export async function revealHuntTreasure(
 
     try {
         // 1. Fetch Hunt Data
-        // Select fields needed for the contract call and creator check
         const hunt = await prisma.hunt.findUnique({
             where: { id: huntId },
             select: {
                 id: true,
                 treasurePositionX: true,
                 treasurePositionY: true,
-                // Salt is now directly selected
                 salt: true,
-                // creatorFid is now directly selected
                 creatorFid: true,
+                onchainHuntId: true // Fetch onchainHuntId
             },
         });
 
         if (!hunt) {
             return { success: false, error: "Hunt not found." };
         }
+        if (!hunt.salt) { // Salt is essential for reveal
+            console.error(`revealHuntTreasure: Hunt ${huntId} (CUID) is missing its salt.`);
+            return { success: false, error: "Hunt's salt is missing. Cannot reveal treasure." };
+        }
+        if (!hunt.onchainHuntId) {
+            console.error(`revealHuntTreasure: Hunt ${huntId} (CUID) is missing its onchainHuntId.`);
+            return { success: false, error: "Hunt's onchain identifier is missing. Cannot reveal treasure." };
+        }
+        const numericOnchainHuntId = BigInt(hunt.onchainHuntId); // For contract call
 
         // 2. Authorize Caller
         // Check participation
@@ -697,12 +719,13 @@ export async function revealHuntTreasure(
         // ... (code omitted for brevity) ...
 
         // 3. Call Contract
-        console.log(`Calling TreasureHuntManager.revealTreasure for hunt ${huntId}...`);
+        console.log(`Calling TreasureHuntManager.revealTreasure for onchainHuntId ${numericOnchainHuntId} (derived from CUID ${huntId})...`);
+        // Use numericOnchainHuntId for the contract call
         const tx = await treasureHuntManagerContract.revealTreasure(
-            hunt.id,
+            numericOnchainHuntId,
             hunt.treasurePositionX,
             hunt.treasurePositionY,
-            hunt.salt // Use the retrieved salt (currently placeholder or actual if migration done)
+            hunt.salt 
         );
 
         console.log(`Reveal transaction submitted: ${tx.hash}`);

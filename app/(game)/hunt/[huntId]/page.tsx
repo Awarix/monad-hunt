@@ -95,6 +95,20 @@ export default function HuntPage() {
   const isHuntEnded = huntDetails?.state === HuntState.WON || huntDetails?.state === HuntState.LOST;
   // ---------------------------------------------------
 
+  // --- Derived onchainHuntId for frontend contract calls ---
+  const numericOnchainHuntIdForFrontend = useMemo(() => {
+    if (huntDetails?.onchainHuntId) {
+      try {
+        return BigInt(huntDetails.onchainHuntId);
+      } catch (e) {
+        console.error("Failed to convert huntDetails.onchainHuntId to BigInt:", huntDetails.onchainHuntId, e);
+        return null;
+      }
+    }
+    return null;
+  }, [huntDetails?.onchainHuntId]);
+  // -----------------------------------------------------
+
   // --- NFT Minting State & Hooks ---
   const [claimNftStatus, setClaimNftStatus] = useState<
       'idle' | 'checking_eligibility' | 'eligible' | 'not_eligible' | 'already_minted' | 
@@ -109,9 +123,11 @@ export default function HuntPage() {
       address: nftContractAddress,
       abi: HuntMapNFTABI.abi,
       functionName: 'hasMinted',
-      args: [huntId, connectedAddress!], // Args: huntId, playerAddress
+      // Args now depend on numericOnchainHuntIdForFrontend and connectedAddress
+      args: numericOnchainHuntIdForFrontend && connectedAddress ? [numericOnchainHuntIdForFrontend, connectedAddress] : undefined,
       query: {
-          enabled: !!nftContractAddress && !!huntId && !!connectedAddress && !isHuntActive, // Only run if connected and hunt ended
+          // Enable only if all required params for args are available and hunt is ended
+          enabled: !!nftContractAddress && !!numericOnchainHuntIdForFrontend && !!connectedAddress && isHuntEnded,
       },
   });
 
@@ -382,9 +398,17 @@ export default function HuntPage() {
         functionName: 'makeMove',
         args: [numericHuntId, targetX, targetY], // Use numericHuntId
       });
-      console.log("Transaction submitted to wallet, hash:", hash);
-      setLastTxHash(hash);
-      // Status will change to 'confirming' via the useWaitForTransactionReceipt hook effect
+      console.log("[Move Initiation] writeContractAsync resolved. Raw hash:", hash);
+      if (hash) {
+        setLastTxHash(hash);
+        console.log("[Move Initiation] Transaction submitted to wallet, lastTxHash set to:", hash);
+        // Status remains 'submitting', will change to 'confirming' via the useWaitForTransactionReceipt hook effect
+      } else {
+        console.error("[Move Initiation] writeContractAsync resolved but hash is undefined/null. This is unexpected after successful signing.");
+        setTxError("Failed to get transaction hash from wallet after signing.");
+        setTxStatus('error');
+        setPendingMovePosition(null); // Clear pending move
+      }
     } catch (err: unknown) {
       console.error("Error submitting transaction to wallet:", err);
       // Simpler error handling (Fix #6d attempt 3)
@@ -409,7 +433,11 @@ export default function HuntPage() {
 
   // Effect to handle transaction confirmation and backend update
   useEffect(() => {
-      if (!pendingMovePosition || !lastTxHash) return; // Only run if a move was initiated
+      console.log('[Confirmation Effect] Running. lastTxHash:', lastTxHash, 'isConfirming:', isConfirming, 'isConfirmed:', isConfirmed, 'pendingMovePos:', pendingMovePosition, 'txStatus:', txStatus);
+      if (!pendingMovePosition || !lastTxHash) {
+          console.log('[Confirmation Effect] Bailing: no pending move or no lastTxHash.');
+          return; // Only run if a move was initiated and hash was obtained
+      }
 
       if (isConfirming) {
           console.log(`Transaction ${lastTxHash} is confirming...`);
@@ -601,7 +629,19 @@ export default function HuntPage() {
         return;
     }
 
-    console.log("Initiating mint transaction with URI:", tokenUri);
+    // Ensure numericOnchainHuntIdForFrontend and connectedAddress are available
+    if (!numericOnchainHuntIdForFrontend) {
+        setClaimNftError("Cannot mint NFT: Onchain hunt identifier is missing or invalid.");
+        setClaimNftStatus('error');
+        return;
+    }
+    if (!connectedAddress) {
+        setClaimNftError("Cannot mint NFT: Wallet address is not available.");
+        setClaimNftStatus('error');
+        return;
+    }
+
+    console.log("Initiating mint transaction with URI:", tokenUri, "for onchainHuntId:", numericOnchainHuntIdForFrontend.toString());
     setClaimNftStatus('submitting_mint');
     setClaimNftError(null);
     setMintTxHash(undefined);
@@ -611,7 +651,7 @@ export default function HuntPage() {
             address: nftContractAddress,
             abi: HuntMapNFTABI.abi,
             functionName: 'mint',
-            args: [tokenUri], // Pass the fetched token URI
+            args: [connectedAddress, numericOnchainHuntIdForFrontend, tokenUri], // Corrected args: _to, _huntId, _tokenURI
         });
         console.log("Mint transaction submitted to wallet, hash:", hash);
         setMintTxHash(hash);
@@ -624,7 +664,7 @@ export default function HuntPage() {
         // Reset to allow retry? Maybe back to 'ready_to_mint' or 'eligible'?
         setClaimNftStatus('eligible'); // Go back to eligible state on wallet error
     }
-  }, [tokenUri, mintNftAsync, nftContractAddress, claimNftStatus]);
+  }, [tokenUri, mintNftAsync, nftContractAddress, claimNftStatus, numericOnchainHuntIdForFrontend, connectedAddress]);
 
   // --- Effect to handle Mint Transaction Confirmation ---
   useEffect(() => {
