@@ -766,20 +766,20 @@ export async function revealHuntTreasure(
         console.log(`[revealHuntTreasure INFO] Reveal transaction confirmed: ${tx.hash} in block ${receipt.blockNumber}`);
         return { success: true, transactionHash: tx.hash };
 
-    } catch (error: unknown) {
+    } catch (error) {
         console.error(`[revealHuntTreasure ERROR] General error for CUID ${huntIdCUID} by FID ${callerFid}:`, error);
         
         // Check for Ethers-like error structure with a 'reason'
         // This is a common pattern but not strictly typed without importing Ethers error types
-        if (typeof error === 'object' && error !== null && 'reason' in error && typeof (error as any).reason === 'string') {
-            const revertReason = (error as any).reason as string;
-            console.error(`[revealHuntTreasure ERROR] Revert Reason: ${revertReason}`);
-            return { success: false, error: `Onchain error: ${revertReason}` };
-        } 
-        // Fallback to standard Error message
-        else if (error instanceof Error) {
-            return { success: false, error: error.message };
-        }
+        // if (typeof error === 'object' && error !== null && 'reason' in error && typeof (error as any).reason === 'string') {
+        //     const revertReason = (error as any).reason as string;
+        //     console.error(`[revealHuntTreasure ERROR] Revert Reason: ${revertReason}`);
+        //     return { success: false, error: `Onchain error: ${revertReason}` };
+        // } 
+        // // Fallback to standard Error message
+        // else if (error instanceof Error) {
+        //     return { success: false, error: error.message };
+        // }
         // Ultimate fallback
         return { success: false, error: "An unknown error occurred revealing treasure." };
     }
