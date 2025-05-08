@@ -654,36 +654,29 @@ export async function claimNft(
  * after a hunt has ended.
  */
 export async function revealHuntTreasure(
-    huntIdCUID: string, // Renamed for clarity, this is the DB CUID
+    huntIdCUID: string, 
     callerFid: number
 ): Promise<RevealResult> {
-    console.log(`revealHuntTreasure called for hunt CUID: ${huntIdCUID} by FID ${callerFid}`);
+    console.log(`[revealHuntTreasure Action] Called for CUID: ${huntIdCUID} by FID ${callerFid}`);
 
     try {
         const hunt = await prisma.hunt.findUnique({
-            where: { id: huntIdCUID }, // Fetch by CUID
+            where: { id: huntIdCUID }, 
             select: {
-                id: true, // CUID
+                id: true, 
                 treasurePositionX: true,
                 treasurePositionY: true,
                 salt: true,
                 creatorFid: true,
-                onchainHuntId: true // This is the string representation of the numeric ID
+                onchainHuntId: true 
             },
         });
 
         if (!hunt) {
+            console.error(`[revealHuntTreasure ERROR] Hunt not found in DB for CUID: ${huntIdCUID}`);
             return { success: false, error: "Hunt not found in DB." };
         }
-        // --- [DEBUG LOGGING START - revealHuntTreasure Data Fetch] ---
-        console.log('[revealHuntTreasure DEBUG] Fetched Hunt Data from DB:');
-        console.log('[revealHuntTreasure DEBUG]   DB CUID (hunt.id):', hunt.id);
-        console.log('[revealHuntTreasure DEBUG]   DB onchainHuntId (string):', hunt.onchainHuntId);
-        console.log('[revealHuntTreasure DEBUG]   DB treasurePositionX:', hunt.treasurePositionX);
-        console.log('[revealHuntTreasure DEBUG]   DB treasurePositionY:', hunt.treasurePositionY);
-        console.log('[revealHuntTreasure DEBUG]   DB salt:', hunt.salt);
-        // --- [DEBUG LOGGING END - revealHuntTreasure Data Fetch] ---
-
+        console.log('[revealHuntTreasure DEBUG] Fetched Hunt Data from DB:', JSON.stringify(hunt, null, 2));
 
         if (!hunt.salt) {
             console.error(`[revealHuntTreasure ERROR] Hunt ${huntIdCUID} is missing its salt in DB.`);
@@ -691,29 +684,52 @@ export async function revealHuntTreasure(
         }
         if (!hunt.onchainHuntId) {
             console.error(`[revealHuntTreasure ERROR] Hunt ${huntIdCUID} is missing its onchainHuntId in DB.`);
-            return { success: false, error: "Hunt's onchain identifier (numeric string) is missing. Cannot reveal treasure." };
+            return { success: false, error: "Hunt's onchain identifier is missing. Cannot reveal treasure." };
         }
         
         let numericOnchainHuntIdFromDB: bigint;
         try {
             numericOnchainHuntIdFromDB = BigInt(hunt.onchainHuntId);
         } catch (e) {
-            console.error(`[revealHuntTreasure ERROR] Failed to convert stored onchainHuntId ('${hunt.onchainHuntId}') to BigInt for hunt CUID ${huntIdCUID}.`, e);
+            console.error(`[revealHuntTreasure ERROR] Failed to convert stored onchainHuntId ('${hunt.onchainHuntId}') to BigInt for CUID ${huntIdCUID}.`, e);
             return { success: false, error: "Stored onchain identifier is invalid." };
         }
+        console.log(`[revealHuntTreasure DEBUG] Converted onchainHuntId to BigInt: ${numericOnchainHuntIdFromDB.toString()}`);
 
-        // --- [DEBUG LOGGING START - revealHuntTreasure Commitment Check] ---
         const dbTreasureX = hunt.treasurePositionX;
         const dbTreasureY = hunt.treasurePositionY;
-        const dbSalt = hunt.salt; // This must be the exact salt string stored, hex prefixed.
+        const dbSalt = hunt.salt;
 
         const recalculatedCommitment = ethers.solidityPackedKeccak256(
             ["uint8", "uint8", "bytes32"],
             [dbTreasureX, dbTreasureY, dbSalt]
         );
-        console.log('[revealHuntTreasure DEBUG]   Recalculated commitment hash using DB values:', recalculatedCommitment);
-        console.log('[revealHuntTreasure DEBUG]   Values used for recalculation: X=', dbTreasureX, 'Y=', dbTreasureY, 'Salt=', dbSalt);
-        // --- [DEBUG LOGGING END - revealHuntTreasure Commitment Check] ---
+        console.log('[revealHuntTreasure DEBUG] Recalculated commitment hash using DB values:', recalculatedCommitment);
+        console.log('[revealHuntTreasure DEBUG] Values used for recalculation: X=', dbTreasureX, 'Y=', dbTreasureY, 'Salt=', dbSalt);
+
+        // <<< DEBUGGING: Call the new getter function >>>
+        let storedHashFromContract: string | undefined;
+        try {
+            console.log(`[revealHuntTreasure DEBUG] Calling contract.getStoredTreasureLocationHash(${numericOnchainHuntIdFromDB.toString()})...`);
+            // Use treasureHuntManagerContractProvider for read-only calls
+            storedHashFromContract = await treasureHuntManagerContractProvider.getStoredTreasureLocationHash(numericOnchainHuntIdFromDB);
+            console.log('[revealHuntTreasure DEBUG] Hash ST KineticsFROM CONTRACT using getter:', storedHashFromContract);
+
+            if (recalculatedCommitment.toLowerCase() !== storedHashFromContract?.toLowerCase()) {
+                console.error('[revealHuntTreasure CRITICAL MISMATCH!] Recalculated hash does NOT match hash from contract getter!');
+                console.error(`  Recalculated: ${recalculatedCommitment}`);
+                console.error(`  From Contract: ${storedHashFromContract}`);
+                // Optionally, you could even return an error here if they don't match, before attempting the reveal transaction
+                // return { success: false, error: "CRITICAL DEBUG: Hash mismatch between server and contract storage." };
+            } else {
+                console.log('[revealHuntTreasure DEBUG] Hashes MATCH between recalculated and contract getter. Proceeding to reveal.');
+            }
+        } catch (getterError: any) {
+            console.error('[revealHuntTreasure ERROR] Failed to call getStoredTreasureLocationHash on contract:', getterError);
+            // Decide if you want to proceed or return error. For debugging, good to know if getter failed.
+            // return { success: false, error: `Failed to query contract for stored hash: ${getterError.message}` };
+        }
+        // <<< END DEBUGGING >>>
 
         const participation = await prisma.move.findFirst({
             where: { huntId: huntIdCUID, userId: callerFid },
@@ -724,30 +740,35 @@ export async function revealHuntTreasure(
         const isCreator = creatorFidFromDb ? creatorFidFromDb === callerFid : false;
 
         if (!isParticipant && !isCreator) {
+            console.warn(`[revealHuntTreasure WARN] FID ${callerFid} is not participant or creator for hunt CUID ${huntIdCUID}.`);
             return { success: false, error: "Not authorized to reveal treasure for this hunt." };
         }
         
-        console.log(`Calling contract TreasureHuntManager.revealTreasure for onchainHuntId (numeric): ${numericOnchainHuntIdFromDB}...`);
+        console.log(`[revealHuntTreasure INFO] Attempting to call contract.revealTreasure for numeric onchainHuntId: ${numericOnchainHuntIdFromDB.toString()}...`);
+        // Use the main treasureHuntManagerContract (with signer) for the state-changing transaction
         const tx = await treasureHuntManagerContract.revealTreasure(
-            numericOnchainHuntIdFromDB, // Use the BigInt converted from the DB's string
+            numericOnchainHuntIdFromDB, 
             dbTreasureX,
             dbTreasureY,
             dbSalt 
         );
 
-        console.log(`Reveal transaction submitted: ${tx.hash}`);
+        console.log(`[revealHuntTreasure INFO] Reveal transaction submitted: ${tx.hash}`);
         const receipt = await tx.wait(1);
 
         if (!receipt || receipt.status !== 1) {
-             console.error(`[revealHuntTreasure ERROR] Reveal transaction failed or receipt not found: ${tx.hash}`, receipt);
+             console.error(`[revealHuntTreasure ERROR] Reveal transaction failed or receipt not found. TxHash: ${tx.hash}`, receipt);
              return { success: false, error: "Onchain transaction failed during reveal.", transactionHash: tx.hash };
         }
-        console.log(`Reveal transaction confirmed: ${tx.hash} in block ${receipt.blockNumber}`);
+        console.log(`[revealHuntTreasure INFO] Reveal transaction confirmed: ${tx.hash} in block ${receipt.blockNumber}`);
         return { success: true, transactionHash: tx.hash };
 
-    } catch (error) { // Catch any to access error.reason
-        console.error(`[revealHuntTreasure ERROR] Error revealing treasure for hunt CUID ${huntIdCUID} by FID ${callerFid}:`, error);
-        // Log specific revert reason if available
+    } catch (error: any) {
+        console.error(`[revealHuntTreasure ERROR] General error for CUID ${huntIdCUID} by FID ${callerFid}:`, error);
+        if (error.reason) {
+            console.error(`[revealHuntTreasure ERROR] Revert Reason: ${error.reason}`);
+            return { success: false, error: `Onchain error: ${error.reason}` };
+        }
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred revealing treasure." };
     }
 } 
