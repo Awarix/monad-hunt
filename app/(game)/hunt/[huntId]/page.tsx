@@ -398,19 +398,21 @@ export default function HuntPage() {
         functionName: 'makeMove',
         args: [numericHuntId, targetX, targetY], // Use numericHuntId
       });
-      console.log("[Move Initiation] writeContractAsync resolved. Raw hash:", hash);
+      console.log("[Move Initiation] writeContractAsync awaited. Raw hash:", hash);
+
       if (hash) {
+        console.log("[Move Initiation] Hash is truthy. Calling setLastTxHash...");
         setLastTxHash(hash);
-        console.log("[Move Initiation] Transaction submitted to wallet, lastTxHash set to:", hash);
+        console.log("[Move Initiation] setLastTxHash seemingly called with:", hash);
         // Status remains 'submitting', will change to 'confirming' via the useWaitForTransactionReceipt hook effect
       } else {
-        console.error("[Move Initiation] writeContractAsync resolved but hash is undefined/null. This is unexpected after successful signing.");
+        console.error("[Move Initiation] writeContractAsync resolved but hash is undefined/null.");
         setTxError("Failed to get transaction hash from wallet after signing.");
         setTxStatus('error');
         setPendingMovePosition(null); // Clear pending move
       }
     } catch (err: unknown) {
-      console.error("Error submitting transaction to wallet:", err);
+      console.error("[Move Initiation] Error caught during writeContractAsync:", err);
       // Simpler error handling (Fix #6d attempt 3)
       let errorMsg = "Failed to submit transaction via wallet.";
       if (err instanceof Error) {
