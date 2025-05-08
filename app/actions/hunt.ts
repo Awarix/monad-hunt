@@ -745,13 +745,9 @@ export async function revealHuntTreasure(
         console.log(`Reveal transaction confirmed: ${tx.hash} in block ${receipt.blockNumber}`);
         return { success: true, transactionHash: tx.hash };
 
-    } catch (error: any) { // Catch any to access error.reason
+    } catch (error) { // Catch any to access error.reason
         console.error(`[revealHuntTreasure ERROR] Error revealing treasure for hunt CUID ${huntIdCUID} by FID ${callerFid}:`, error);
         // Log specific revert reason if available
-        if (error.reason) {
-            console.error(`[revealHuntTreasure ERROR] Revert Reason: ${error.reason}`);
-            return { success: false, error: `Onchain error: ${error.reason}` };
-        }
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred revealing treasure." };
     }
 } 
