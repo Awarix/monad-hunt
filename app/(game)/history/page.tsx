@@ -110,7 +110,7 @@ export default function HistoryPage() {
       {error && <p className="text-center text-red-400">Error: {error}</p>}
 
       {!isLoading && !error && history.length === 0 && (
-        <p className="text-center text-gray-400">You haven't participated in any hunts yet.</p>
+        <p className="text-center text-gray-400">You havent participated in any hunts yet.</p>
       )}
 
       {!isLoading && !error && history.length > 0 && (
