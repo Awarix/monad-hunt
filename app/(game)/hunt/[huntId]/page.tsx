@@ -368,12 +368,25 @@ export default function HuntPage() {
   // --- New Move Handling Logic --- 
 
   const initiateMoveTransaction = useCallback(async (targetX: number, targetY: number) => {
-    if (!huntId || !managerContractAddress || !writeContractAsync || !doesUserHoldActiveLock || !isConnected) {
-        console.error("Cannot initiate move:", { huntId, managerContractAddress, writeContractAsync: !!writeContractAsync, doesUserHoldActiveLock, isConnected });
+    if (!huntId || !writeContractAsync || !doesUserHoldActiveLock || !isConnected) {
+        console.error("Pre-flight check failed: Missing huntId, writeContractAsync, lock, or connection.", { huntId, writeFn: !!writeContractAsync, lock: doesUserHoldActiveLock, connected: isConnected });
         setTxError("Cannot initiate move. Ensure you hold the lock and your wallet is connected.");
         setTxStatus('error');
         return;
     }
+    if (!managerContractAddress) {
+        console.error("Pre-flight check failed: managerContractAddress is missing. Check env var NEXT_PUBLIC_TREASURE_HUNT_MANAGER_ADDRESS.");
+        setTxError("Configuration error: Contract address is missing.");
+        setTxStatus('error');
+        return;
+    }
+    if (!TreasureHuntManagerABI?.abi) {
+        console.error("Pre-flight check failed: TreasureHuntManagerABI.abi is missing or invalid. Check ABI import.");
+        setTxError("Configuration error: Contract ABI is missing.");
+        setTxStatus('error');
+        return;
+    }
+
     if (txStatus === 'submitting' || txStatus === 'confirming' || txStatus === 'updating_db') {
         console.warn("Move already in progress.");
         return;
@@ -387,10 +400,15 @@ export default function HuntPage() {
 
     try {
       // Convert string huntId to a BigInt representation (e.g., by hashing)
-      // This assumes the contract stores huntId as a uint256 derived from the string ID.
-      // ethers.id() produces a bytes32 hex string (keccak256 hash).
-      // BigInt() can convert this hex string to a BigInt.
       const numericHuntId = BigInt(ethers.id(huntId));
+
+      // <<< Add final check log for address and ABI object >>>
+      console.log("[Move Initiation] Attempting writeContractAsync with:");
+      console.log("  Address:", managerContractAddress);
+      console.log("  ABI Exists:", !!TreasureHuntManagerABI?.abi);
+      console.log("  Function Name:", 'makeMove');
+      console.log("  Args:", [numericHuntId, targetX, targetY]);
+      // <<< End check log >>>
 
       const hash = await writeContractAsync({
         address: managerContractAddress,
@@ -413,14 +431,8 @@ export default function HuntPage() {
       }
     } catch (err: unknown) {
       console.error("[Move Initiation] Error caught during writeContractAsync:", err);
-      // Simpler error handling (Fix #6d attempt 3)
-      let errorMsg = "Failed to submit transaction via wallet.";
-      if (err instanceof Error) {
-        errorMsg = err.message;
-      } else if (typeof err === 'string') {
-        errorMsg = err;
-      }
-      setTxError(errorMsg);
+      // <<< Simplify error handling >>>
+      setTxError(err instanceof Error ? err.message : "An unknown error occurred during transaction submission.");
       setTxStatus('error');
       setPendingMovePosition(null); // Clear pending move on error
     }
