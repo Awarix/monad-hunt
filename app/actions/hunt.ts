@@ -741,3 +741,60 @@ export async function revealHuntTreasure(
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred revealing treasure." };
     }
 } 
+
+// --- New Server Action for Hunt History ---
+
+/**
+ * Represents a hunt entry in the user's history.
+ */
+export interface UserHuntHistoryEntry extends ListedHunt { // Reuse ListedHunt structure
+    outcome?: 'WON' | 'LOST'; // Add outcome for ended hunts
+    onchainHuntId?: string | null; // Include for potential future use (like linking mint check)
+}
+
+/**
+ * Fetches all hunts a specific user has participated in.
+ */
+export async function getUserHuntHistory(userFid: number): Promise<UserHuntHistoryEntry[]> {
+    console.log(`getUserHuntHistory called for FID: ${userFid}`);
+    try {
+        const hunts = await prisma.hunt.findMany({
+            where: {
+                // Find hunts where there is at least one move by the user
+                moves: {
+                    some: {
+                        userId: userFid,
+                    },
+                },
+            },
+            include: {
+                lock: true, // Include lock for active hunts
+                _count: {
+                    select: { moves: true }, // Count moves
+                },
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+
+        // Map to the history entry type
+        return hunts.map(hunt => ({
+            id: hunt.id,
+            name: hunt.name,
+            state: hunt.state,
+            treasureType: hunt.treasureType,
+            moveCount: hunt._count.moves,
+            lock: hunt.lock ? { playerFid: hunt.lock.playerFid, expiresAt: hunt.lock.expiresAt } : null,
+            // Determine outcome based on state
+            outcome: hunt.state === HuntState.WON ? 'WON' : hunt.state === HuntState.LOST ? 'LOST' : undefined,
+            onchainHuntId: hunt.onchainHuntId, // Pass along the onchain ID
+        }));
+
+    } catch (error) {
+        console.error(`Error fetching hunt history for FID ${userFid}:`, error);
+        return []; // Return empty array on error
+    }
+}
+
+// --- End New Server Action --- 

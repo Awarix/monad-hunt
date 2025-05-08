@@ -235,26 +235,29 @@ export default function HuntsListPage() {
   return (
     // Main page container - remove max-w, adjust padding
     <div className="container mx-auto p-4 sm:p-6 md:p-8"> 
-      <h1 
-        className="text-3xl sm:text-4xl font-bold mb-8 text-center text-[var(--color-text-header)] uppercase tracking-widest" // Add uppercase/tracking
-        style={headerGlowStyle}
-      >
-          Active Hunts
-      </h1>
-
-      {/* Create Button Area */}
-      <div className="mb-10 text-center">
-        <button 
-          onClick={handleCreateHunt}
-          disabled={isCreating || !frameContext?.user?.fid}
-          className={createButtonStyle} // Apply updated style
+      <div className="flex justify-between items-center mb-6 sm:mb-8">
+        <h1 
+          className="text-3xl sm:text-4xl font-bold text-[var(--color-text-header)] uppercase tracking-widest"
+          style={headerGlowStyle}
         >
-          {isCreating ? "Creating..." : "Create New Hunt"}
-        </button>
-        {!frameContext?.user?.fid && 
-            <p className="text-sm text-red-400 mt-3" style={redGlowStyle}>
-                Connect with Farcaster to create a hunt.
-            </p>}
+          Active Hunts
+        </h1>
+        <div className="flex items-center space-x-4">
+            <Link href="/history" className="text-[var(--color-accent)] hover:text-[var(--color-highlight)] transition-colors duration-200 text-sm sm:text-base">
+                My Hunt History
+            </Link>
+            <button 
+              onClick={handleCreateHunt}
+              disabled={isCreating || !frameContext?.user?.fid}
+              className={createButtonStyle} // Apply updated style
+            >
+              {isCreating ? "Creating..." : "Create New Hunt"}
+            </button>
+            {!frameContext?.user?.fid && 
+                <p className="text-sm text-red-400 mt-3" style={redGlowStyle}>
+                    Connect with Farcaster to create a hunt.
+                </p>}
+        </div>
       </div>
 
       {/* Loading/Error Messages Area: Apply consistent styling */} 
