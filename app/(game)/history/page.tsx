@@ -58,7 +58,7 @@ export default function HistoryPage() {
   const [history, setHistory] = useState<UserHuntHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { isLoaded: isFarcasterLoaded, frameContext, error: farcasterError } = useFarcaster();
+  const { isLoaded: isFarcasterLoaded, frameContext } = useFarcaster();
   const { address: connectedAddress } = useAccount(); // Get connected wallet address
 
   const userFid = frameContext?.user?.fid;
