@@ -83,57 +83,57 @@ export async function createHunt(creatorFid: number): Promise<{ huntId: string }
   let salt: string | undefined;
   let treasureLocationHash: string | undefined;
   // ---------------------------------------------
-  let newHuntId: string | undefined;
-  let numericHuntIdForCreation: bigint | undefined;
+  let newHuntDbId: string | undefined; // CUID from DB
+  let numericOnchainHuntIdForCreation: bigint | undefined;
 
   try {
-    // <<< Use game logic for treasure position and type >>>
     const treasurePosition = generateReachableTreasurePosition();
-    const treasureTypes = ['COMMON', 'RARE', 'EPIC'] as const; // Use const assertion
+    const treasureTypes = ['COMMON', 'RARE', 'EPIC'] as const;
     const selectedTreasureTypeString = treasureTypes[Math.floor(Math.random() * treasureTypes.length)];
+    const treasureTypePrismaEnum = TreasureType[selectedTreasureTypeString];
 
-    console.log(`Generated Treasure Position: (${treasurePosition.x}, ${treasurePosition.y})`);
-    console.log(`Generated Treasure Type: ${selectedTreasureTypeString}`);
-
-    const treasureTypePrismaEnum = TreasureType[selectedTreasureTypeString]; // Map string to Prisma enum
     if (!treasureTypePrismaEnum) {
         throw new Error(`Invalid treasure type generated: ${selectedTreasureTypeString}`);
     }
-    // <<< End game logic usage >>>
 
     // --- Onchain Integration: Generate Salt & Hash ---
     salt = ethers.hexlify(ethers.randomBytes(32));
     treasureLocationHash = ethers.solidityPackedKeccak256(
         ["uint8", "uint8", "bytes32"],
-        [treasurePosition.x, treasurePosition.y, salt] // Use generated position
+        [treasurePosition.x, treasurePosition.y, salt]
     );
-    // ---------------------------------------------
+    // --- [DEBUG LOGGING START - createHunt] ---
+    console.log('[createHunt DEBUG] Generated Treasure Position:', treasurePosition);
+    console.log('[createHunt DEBUG] Generated Treasure Type:', selectedTreasureTypeString);
+    console.log('[createHunt DEBUG] Generated Salt:', salt);
+    console.log('[createHunt DEBUG] Calculated treasureLocationHash (for contract):', treasureLocationHash);
+    // --- [DEBUG LOGGING END - createHunt] ---
 
-    // Create DB entry first to get the CUID
     const newHuntDBRecord = await prisma.hunt.create({
       data: {
         name: `Hunt created by ${creatorFid}`,
-        treasureType: treasureTypePrismaEnum, // Use mapped enum
-        treasurePositionX: treasurePosition.x, // Use generated position
-        treasurePositionY: treasurePosition.y, // Use generated position
+        treasureType: treasureTypePrismaEnum,
+        treasurePositionX: treasurePosition.x,
+        treasurePositionY: treasurePosition.y,
         maxSteps: MAX_STEPS,
         state: HuntState.PENDING_CREATION,
         creatorFid: creatorFid,
-        salt: salt,
+        salt: salt, // Store the exact salt used for the hash
+        // onchainHuntId will be added after successful contract call
       },
     });
 
-    newHuntId = newHuntDBRecord.id;
-    console.log(`Hunt PENDING_CREATION in DB with ID: ${newHuntId}`);
+    newHuntDbId = newHuntDBRecord.id; // This is the CUID
+    numericOnchainHuntIdForCreation = BigInt(ethers.id(newHuntDbId)); // Derive numeric ID from CUID
 
-    // Convert string CUID to numeric ID for contract interaction
-    numericHuntIdForCreation = BigInt(ethers.id(newHuntId));
+    // --- [DEBUG LOGGING START - createHunt IDs] ---
+    console.log(`[createHunt DEBUG] DB CUID (newHuntDbId): ${newHuntDbId}`);
+    console.log(`[createHunt DEBUG] Derived Numeric ID for onchain (numericOnchainHuntIdForCreation): ${numericOnchainHuntIdForCreation.toString()}`);
+    // --- [DEBUG LOGGING END - createHunt IDs] ---
 
-    // --- Onchain Integration: Call Contract ---
-    console.log(`Calling TreasureHuntManager.createHunt for numericHuntId: ${numericHuntIdForCreation} (derived from DB ID: ${newHuntId})...`);
-    // Map treasure type string to uint8 for the contract
+    console.log(`Calling TreasureHuntManager.createHunt for numericHuntId: ${numericOnchainHuntIdForCreation}...`);
     let treasureTypeContractUint: number;
-    switch (selectedTreasureTypeString) { // <<< Use generated type string >>>
+    switch (selectedTreasureTypeString) {
         case 'COMMON': treasureTypeContractUint = 0; break;
         case 'RARE':   treasureTypeContractUint = 1; break;
         case 'EPIC':   treasureTypeContractUint = 2; break;
@@ -141,44 +141,40 @@ export async function createHunt(creatorFid: number): Promise<{ huntId: string }
     }
 
     const tx = await treasureHuntManagerContract.createHunt(
-        numericHuntIdForCreation, // Use the numeric/BigInt version
+        numericOnchainHuntIdForCreation,
         treasureTypeContractUint, 
         MAX_STEPS,
-        treasureLocationHash
+        treasureLocationHash // The pre-calculated hash
     );
 
     console.log(`Transaction submitted: ${tx.hash}, waiting for confirmation...`);
     const receipt = await tx.wait(); 
     console.log(`Transaction confirmed in block: ${receipt.blockNumber}`);
 
-    // If onchain creation is successful, update DB state to ACTIVE
+    const savedOnchainHuntIdString = numericOnchainHuntIdForCreation.toString();
     await prisma.hunt.update({
-        where: { id: newHuntId },
-        data: { state: HuntState.ACTIVE, onchainHuntId: numericHuntIdForCreation.toString() }, 
+        where: { id: newHuntDbId },
+        data: { 
+            state: HuntState.ACTIVE, 
+            onchainHuntId: savedOnchainHuntIdString // Store the string representation of the numeric ID
+        }, 
     });
-    console.log(`Hunt ID ${newHuntId} successfully created onchain and marked ACTIVE in DB.`);
-    // -----------------------------------------
-
-    // --- Broadcast List Update --- 
+    // --- [DEBUG LOGGING START - createHunt DB Save] ---
+    console.log(`[createHunt DEBUG] Hunt ID ${newHuntDbId} successfully created onchain. Saved onchainHuntId to DB: '${savedOnchainHuntIdString}'`);
+    // --- [DEBUG LOGGING END - createHunt DB Save] ---
+    
     await broadcastHuntsListUpdate();
-    // ---------------------------
-
-    return { huntId: newHuntDBRecord.id };
+    return { huntId: newHuntDbId };
 
   } catch (error) {
-    console.error("Error creating hunt:", error);
-    // --- Onchain Integration: Error Handling --- 
-    // If the contract call failed after DB creation, we might want to mark the DB entry as failed
-    // or attempt to delete it. For now, just log and return error.
-    if (newHuntId) {
-        console.error(`Failed to complete onchain creation for DB Hunt ID: ${newHuntId}. Corresponding numeric ID: ${numericHuntIdForCreation}.`);
-        // Mark hunt as FAILED in DB if onchain step failed
+    console.error("[createHunt ERROR] Error creating hunt:", error);
+    if (newHuntDbId) {
+        console.error(`[createHunt ERROR] Failed to complete onchain creation for DB Hunt ID (CUID): ${newHuntDbId}. Numeric ID used: ${numericOnchainHuntIdForCreation?.toString()}`);
         await prisma.hunt.update({
-            where: { id: newHuntId },
-            data: { state: HuntState.FAILED_CREATION }, // Uses the new enum value
+            where: { id: newHuntDbId },
+            data: { state: HuntState.FAILED_CREATION },
         });
     }
-    // -----------------------------------------
     return { error: error instanceof Error ? error.message : "An unknown error occurred during hunt creation." };
   }
 }
@@ -658,50 +654,72 @@ export async function claimNft(
  * after a hunt has ended.
  */
 export async function revealHuntTreasure(
-    huntId: string,
+    huntIdCUID: string, // Renamed for clarity, this is the DB CUID
     callerFid: number
 ): Promise<RevealResult> {
-    console.log(`revealHuntTreasure called for hunt ${huntId} by FID ${callerFid}`);
+    console.log(`revealHuntTreasure called for hunt CUID: ${huntIdCUID} by FID ${callerFid}`);
 
     try {
-        // 1. Fetch Hunt Data
         const hunt = await prisma.hunt.findUnique({
-            where: { id: huntId },
+            where: { id: huntIdCUID }, // Fetch by CUID
             select: {
-                id: true,
+                id: true, // CUID
                 treasurePositionX: true,
                 treasurePositionY: true,
                 salt: true,
                 creatorFid: true,
-                onchainHuntId: true // Fetch onchainHuntId
+                onchainHuntId: true // This is the string representation of the numeric ID
             },
         });
 
         if (!hunt) {
-            return { success: false, error: "Hunt not found." };
+            return { success: false, error: "Hunt not found in DB." };
         }
-        if (!hunt.salt) { // Salt is essential for reveal
-            console.error(`revealHuntTreasure: Hunt ${huntId} (CUID) is missing its salt.`);
+        // --- [DEBUG LOGGING START - revealHuntTreasure Data Fetch] ---
+        console.log('[revealHuntTreasure DEBUG] Fetched Hunt Data from DB:');
+        console.log('[revealHuntTreasure DEBUG]   DB CUID (hunt.id):', hunt.id);
+        console.log('[revealHuntTreasure DEBUG]   DB onchainHuntId (string):', hunt.onchainHuntId);
+        console.log('[revealHuntTreasure DEBUG]   DB treasurePositionX:', hunt.treasurePositionX);
+        console.log('[revealHuntTreasure DEBUG]   DB treasurePositionY:', hunt.treasurePositionY);
+        console.log('[revealHuntTreasure DEBUG]   DB salt:', hunt.salt);
+        // --- [DEBUG LOGGING END - revealHuntTreasure Data Fetch] ---
+
+
+        if (!hunt.salt) {
+            console.error(`[revealHuntTreasure ERROR] Hunt ${huntIdCUID} is missing its salt in DB.`);
             return { success: false, error: "Hunt's salt is missing. Cannot reveal treasure." };
         }
         if (!hunt.onchainHuntId) {
-            console.error(`revealHuntTreasure: Hunt ${huntId} (CUID) is missing its onchainHuntId.`);
-            return { success: false, error: "Hunt's onchain identifier is missing. Cannot reveal treasure." };
+            console.error(`[revealHuntTreasure ERROR] Hunt ${huntIdCUID} is missing its onchainHuntId in DB.`);
+            return { success: false, error: "Hunt's onchain identifier (numeric string) is missing. Cannot reveal treasure." };
         }
-        const numericOnchainHuntId = BigInt(hunt.onchainHuntId); // For contract call
+        
+        let numericOnchainHuntIdFromDB: bigint;
+        try {
+            numericOnchainHuntIdFromDB = BigInt(hunt.onchainHuntId);
+        } catch (e) {
+            console.error(`[revealHuntTreasure ERROR] Failed to convert stored onchainHuntId ('${hunt.onchainHuntId}') to BigInt for hunt CUID ${huntIdCUID}.`, e);
+            return { success: false, error: "Stored onchain identifier is invalid." };
+        }
 
-        // 2. Authorize Caller
-        // Check participation
+        // --- [DEBUG LOGGING START - revealHuntTreasure Commitment Check] ---
+        const dbTreasureX = hunt.treasurePositionX;
+        const dbTreasureY = hunt.treasurePositionY;
+        const dbSalt = hunt.salt; // This must be the exact salt string stored, hex prefixed.
+
+        const recalculatedCommitment = ethers.solidityPackedKeccak256(
+            ["uint8", "uint8", "bytes32"],
+            [dbTreasureX, dbTreasureY, dbSalt]
+        );
+        console.log('[revealHuntTreasure DEBUG]   Recalculated commitment hash using DB values:', recalculatedCommitment);
+        console.log('[revealHuntTreasure DEBUG]   Values used for recalculation: X=', dbTreasureX, 'Y=', dbTreasureY, 'Salt=', dbSalt);
+        // --- [DEBUG LOGGING END - revealHuntTreasure Commitment Check] ---
+
         const participation = await prisma.move.findFirst({
-            where: {
-                huntId: huntId,
-                userId: callerFid,
-            },
-            select: { id: true }, // Only need to know if one exists
+            where: { huntId: huntIdCUID, userId: callerFid },
+            select: { id: true },
         });
         const isParticipant = !!participation;
-
-        // Check creator status (Fix #2 - Type error fix)
         const creatorFidFromDb: number | null | undefined = hunt.creatorFid;
         const isCreator = creatorFidFromDb ? creatorFidFromDb === callerFid : false;
 
@@ -709,35 +727,31 @@ export async function revealHuntTreasure(
             return { success: false, error: "Not authorized to reveal treasure for this hunt." };
         }
         
-        // Optional: Check if hunt is already revealed onchain? 
-        // ... (code omitted for brevity) ...
-
-        // 3. Call Contract
-        console.log(`Calling TreasureHuntManager.revealTreasure for onchainHuntId ${numericOnchainHuntId} (derived from CUID ${huntId})...`);
-        // Use numericOnchainHuntId for the contract call
+        console.log(`Calling contract TreasureHuntManager.revealTreasure for onchainHuntId (numeric): ${numericOnchainHuntIdFromDB}...`);
         const tx = await treasureHuntManagerContract.revealTreasure(
-            numericOnchainHuntId,
-            hunt.treasurePositionX,
-            hunt.treasurePositionY,
-            hunt.salt 
+            numericOnchainHuntIdFromDB, // Use the BigInt converted from the DB's string
+            dbTreasureX,
+            dbTreasureY,
+            dbSalt 
         );
 
         console.log(`Reveal transaction submitted: ${tx.hash}`);
-
-        // 4. Wait & Confirm
-        const receipt = await tx.wait(1); // Wait for 1 confirmation
+        const receipt = await tx.wait(1);
 
         if (!receipt || receipt.status !== 1) {
-             console.error(`Reveal transaction failed or receipt not found: ${tx.hash}`, receipt);
+             console.error(`[revealHuntTreasure ERROR] Reveal transaction failed or receipt not found: ${tx.hash}`, receipt);
              return { success: false, error: "Onchain transaction failed during reveal.", transactionHash: tx.hash };
         }
-
         console.log(`Reveal transaction confirmed: ${tx.hash} in block ${receipt.blockNumber}`);
-
         return { success: true, transactionHash: tx.hash };
 
-    } catch (error) {
-        console.error(`Error revealing treasure for hunt ${huntId} by FID ${callerFid}:`, error);
+    } catch (error: any) { // Catch any to access error.reason
+        console.error(`[revealHuntTreasure ERROR] Error revealing treasure for hunt CUID ${huntIdCUID} by FID ${callerFid}:`, error);
+        // Log specific revert reason if available
+        if (error.reason) {
+            console.error(`[revealHuntTreasure ERROR] Revert Reason: ${error.reason}`);
+            return { success: false, error: `Onchain error: ${error.reason}` };
+        }
         return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred revealing treasure." };
     }
 } 
