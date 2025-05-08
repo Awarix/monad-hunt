@@ -453,78 +453,73 @@ export default function HuntPage() {
           return; // Only run if a move was initiated and hash was obtained
       }
 
-      if (isConfirming) {
+      // If confirming, just update status (only if needed)
+      if (isConfirming && txStatus !== 'confirming') {
           console.log(`Transaction ${lastTxHash} is confirming...`);
           setTxStatus('confirming');
-          return;
+          // No return, let logic continue in case confirmation happens fast
       }
 
-      if (isConfirmed && receipt) {
+      // If confirmed, process *ONCE* by checking txStatus
+      if (isConfirmed && receipt && txStatus === 'confirming') {
           console.log(`Transaction ${lastTxHash} confirmed! Receipt:`, receipt);
           if (receipt.status === 'success') {
-              console.log("Calling backend submitMove action...");
-              setTxStatus('updating_db');
+              console.log("Calling backend submitMove action (once)...");
+              setTxStatus('updating_db'); // Indicate backend update is starting
 
               if (!userFid || !connectedAddress || !pendingMovePosition) {
                    console.error("Missing user FID, address, or pending move position for backend call.");
                    setTxError("Internal error: Missing required data to finalize move.");
                    setTxStatus('error');
-                   setPendingMovePosition(null);
-                   return;
-              }
-
-              submitMove(
-                  huntId as string,
-                  userFid,
-                  connectedAddress,
-                  receipt.transactionHash // Tx Hash is the 4th arg
-               )
-                  .then((result: SubmitResult) => {
-                      if (result.success) {
-                          console.log("Backend submitMove successful.");
-                          setTxStatus('success');
-                          // Data should refresh via SSE, but could force loadHuntData() if needed
-                      } else {
-                          console.error("Backend submitMove failed:", result.error);
-                          setTxError(result.error || "Backend failed to process the move after confirmation.");
+                   setPendingMovePosition(null); // Clear pending move
+                   // No return needed here, state change triggers re-render
+              } else {
+                  // Call backend only if data is present
+                  submitMove(
+                      huntId as string,
+                      userFid,
+                      connectedAddress,
+                      receipt.transactionHash
+                   )
+                      .then((result: SubmitResult) => {
+                          if (result.success) {
+                              console.log("Backend submitMove successful.");
+                              setTxStatus('success'); // Move to success state
+                          } else {
+                              console.error("Backend submitMove failed:", result.error);
+                              setTxError(result.error || "Backend failed to process the move after confirmation.");
+                              setTxStatus('error'); // Move to error state
+                          }
+                      })
+                      .catch(err => {
+                          console.error("Error calling backend submitMove:", err);
+                          setTxError(err instanceof Error ? err.message : "An error occurred updating the backend.");
                           setTxStatus('error');
-                      }
-                  })
-                  .catch(err => {
-                      console.error("Error calling backend submitMove:", err);
-                      setTxError(err instanceof Error ? err.message : "An error occurred updating the backend.");
-                      setTxStatus('error');
-                  })
-                  .finally(() => {
-                      setPendingMovePosition(null); // Clear pending move after backend attempt
-                  });
-          } else {
+                      })
+                      .finally(() => {
+                          // Always clear pending position after backend attempt
+                          setPendingMovePosition(null);
+                      });
+              }
+          } else { // Transaction reverted
               console.error(`Transaction ${lastTxHash} reverted. Receipt:`, receipt);
               setTxError("Transaction failed on-chain (reverted).");
               setTxStatus('error');
-              setPendingMovePosition(null);
+              setPendingMovePosition(null); // Clear pending move
           }
-          return; // Important: exit after handling confirmation
-      }
-
-      if (confirmationError) {
+      // Handle confirmation error (only set state if not already in error)
+      } else if (confirmationError && txStatus !== 'error') {
           console.error(`Error waiting for transaction ${lastTxHash} confirmation:`, confirmationError);
-         
+          setTxError("Failed to confirm transaction.");
           setTxStatus('error');
           setPendingMovePosition(null);
-          return; // Important: exit after handling error
+      // Handle initial submission error (only set state if not already in error)
+      } else if (makeMoveError && !lastTxHash && txStatus !== 'error') {
+          console.error("Initial transaction submission error (from makeMoveError):", makeMoveError);
+          setTxError("Failed to submit transaction to wallet.");
+          setTxStatus('error'); // Already set in initiateMoveTransaction's catch, but safe fallback
+          setPendingMovePosition(null);
       }
-
-       // Handle the case where the wallet submission itself failed earlier (makeMoveError)
-      if (makeMoveError && !lastTxHash) { // Only if hash wasn't even generated
-            console.error("Initial transaction submission error (from makeMoveError):", makeMoveError);
-            
-            if (txStatus !== 'error') { // Avoid overwriting specific errors from initiateMoveTransaction
-                setTxStatus('error');
-            }
-            setPendingMovePosition(null);
-            return;
-       }
 
   }, [
       isConfirming,
@@ -535,10 +530,9 @@ export default function HuntPage() {
       lastTxHash,
       huntId,
       pendingMovePosition,
-      submitMove,
-      // Added missing dependencies (Fix #8)
-      connectedAddress, 
-      txStatus, 
+      // submitMove, // Server action, stable reference
+      connectedAddress,
+      txStatus,
       userFid
   ]);
 

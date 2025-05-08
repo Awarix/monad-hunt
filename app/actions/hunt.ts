@@ -2,7 +2,11 @@
 
 import { PrismaClient, HuntState, TreasureType, Move, HuntLock, Prisma } from '@prisma/client';
 import type { LockUpdatePayload, HuntUpdatePayload, Position } from '@/types';
-import { generateHint, /* createNewHunt, processPlayerMove */ } from '@/lib/game-logic';
+import { 
+    generateHint, 
+    generateReachableTreasurePosition
+    /* createNewHunt, processPlayerMove */ 
+} from '@/lib/game-logic';
 import { START_POSITION, MAX_STEPS } from '@/lib/constants';
 import { broadcastHuntUpdate, broadcastHuntsListUpdate } from '@/lib/hunt-broadcaster';
 // --- Onchain Integration Imports ---
@@ -83,48 +87,38 @@ export async function createHunt(creatorFid: number): Promise<{ huntId: string }
   let numericHuntIdForCreation: bigint | undefined;
 
   try {
-    // Correct function name from game-logic was renamed/refactored, need to adapt
-    // For now, let's mock the structure needed for salt/hash generation
-    // TODO: Review lib/game-logic.ts and adapt hunt creation if needed
-    const huntBaseData = {
-        treasurePosition: { 
-            x: Math.floor(Math.random() * 10), // Placeholder generation
-            y: Math.floor(Math.random() * 10)  // Placeholder generation
-        },
-        treasureType: ['COMMON', 'RARE', 'EPIC'][Math.floor(Math.random() * 3)]
-    };
-    // const huntBaseData = generateHuntData('temp', 'temp', creatorFid.toString()); // Old call
+    // <<< Use game logic for treasure position and type >>>
+    const treasurePosition = generateReachableTreasurePosition();
+    const treasureTypes = ['COMMON', 'RARE', 'EPIC'] as const; // Use const assertion
+    const selectedTreasureTypeString = treasureTypes[Math.floor(Math.random() * treasureTypes.length)];
 
-    if (!huntBaseData) {
-        throw new Error("Failed to generate hunt base data.");
-    }
-    const treasureTypePrismaEnum = TreasureType[huntBaseData.treasureType as keyof typeof TreasureType];
+    console.log(`Generated Treasure Position: (${treasurePosition.x}, ${treasurePosition.y})`);
+    console.log(`Generated Treasure Type: ${selectedTreasureTypeString}`);
+
+    const treasureTypePrismaEnum = TreasureType[selectedTreasureTypeString]; // Map string to Prisma enum
     if (!treasureTypePrismaEnum) {
-        throw new Error(`Invalid treasure type generated: ${huntBaseData.treasureType}`);
+        throw new Error(`Invalid treasure type generated: ${selectedTreasureTypeString}`);
     }
+    // <<< End game logic usage >>>
 
     // --- Onchain Integration: Generate Salt & Hash ---
-    // TODO: The salt MUST be saved to the database for the revealTreasure function to work.
-    // Add a `salt` field (String @db.VarChar(66)) to the Hunt model in schema.prisma and run migration.
     salt = ethers.hexlify(ethers.randomBytes(32));
     treasureLocationHash = ethers.solidityPackedKeccak256(
         ["uint8", "uint8", "bytes32"],
-        [huntBaseData.treasurePosition.x, huntBaseData.treasurePosition.y, salt]
+        [treasurePosition.x, treasurePosition.y, salt] // Use generated position
     );
-    // console.log(`Generated Salt: ${salt}`); 
-    // console.log(`Generated Hash: ${treasureLocationHash}`);
     // ---------------------------------------------
 
     // Create DB entry first to get the CUID
     const newHuntDBRecord = await prisma.hunt.create({
       data: {
         name: `Hunt created by ${creatorFid}`,
-        treasureType: treasureTypePrismaEnum,
-        treasurePositionX: huntBaseData.treasurePosition.x,
-        treasurePositionY: huntBaseData.treasurePosition.y,
+        treasureType: treasureTypePrismaEnum, // Use mapped enum
+        treasurePositionX: treasurePosition.x, // Use generated position
+        treasurePositionY: treasurePosition.y, // Use generated position
         maxSteps: MAX_STEPS,
-        state: HuntState.PENDING_CREATION, // Uses the new enum value
-        creatorFid: creatorFid, 
+        state: HuntState.PENDING_CREATION,
+        creatorFid: creatorFid,
         salt: salt,
       },
     });
@@ -139,11 +133,11 @@ export async function createHunt(creatorFid: number): Promise<{ huntId: string }
     console.log(`Calling TreasureHuntManager.createHunt for numericHuntId: ${numericHuntIdForCreation} (derived from DB ID: ${newHuntId})...`);
     // Map treasure type string to uint8 for the contract
     let treasureTypeContractUint: number;
-    switch (huntBaseData.treasureType) {
+    switch (selectedTreasureTypeString) { // <<< Use generated type string >>>
         case 'COMMON': treasureTypeContractUint = 0; break;
         case 'RARE':   treasureTypeContractUint = 1; break;
         case 'EPIC':   treasureTypeContractUint = 2; break;
-        default: throw new Error(`Unknown treasure type for contract: ${huntBaseData.treasureType}`);
+        default: throw new Error(`Unknown treasure type for contract: ${selectedTreasureTypeString}`);
     }
 
     const tx = await treasureHuntManagerContract.createHunt(
