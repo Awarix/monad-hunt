@@ -711,23 +711,26 @@ export async function revealHuntTreasure(
         let storedHashFromContract: string | undefined;
         try {
             console.log(`[revealHuntTreasure DEBUG] Calling contract.getStoredTreasureLocationHash(${numericOnchainHuntIdFromDB.toString()})...`);
-            // Use treasureHuntManagerContractProvider for read-only calls
             storedHashFromContract = await treasureHuntManagerContractProvider.getStoredTreasureLocationHash(numericOnchainHuntIdFromDB);
-            console.log('[revealHuntTreasure DEBUG] Hash ST KineticsFROM CONTRACT using getter:', storedHashFromContract);
+            console.log('[revealHuntTreasure DEBUG] Hash FROM CONTRACT using getter:', storedHashFromContract);
 
             if (recalculatedCommitment.toLowerCase() !== storedHashFromContract?.toLowerCase()) {
                 console.error('[revealHuntTreasure CRITICAL MISMATCH!] Recalculated hash does NOT match hash from contract getter!');
                 console.error(`  Recalculated: ${recalculatedCommitment}`);
                 console.error(`  From Contract: ${storedHashFromContract}`);
-                // Optionally, you could even return an error here if they don't match, before attempting the reveal transaction
-                // return { success: false, error: "CRITICAL DEBUG: Hash mismatch between server and contract storage." };
             } else {
                 console.log('[revealHuntTreasure DEBUG] Hashes MATCH between recalculated and contract getter. Proceeding to reveal.');
             }
-        } catch (getterError: any) {
+        } catch (getterError: unknown) {
             console.error('[revealHuntTreasure ERROR] Failed to call getStoredTreasureLocationHash on contract:', getterError);
-            // Decide if you want to proceed or return error. For debugging, good to know if getter failed.
-            // return { success: false, error: `Failed to query contract for stored hash: ${getterError.message}` };
+            // Log message if it's an Error instance
+            if (getterError instanceof Error) {
+                console.error('[revealHuntTreasure ERROR] Getter error message:', getterError.message);
+                // Optionally, return specific error: 
+                // return { success: false, error: `Failed to query contract for stored hash: ${getterError.message}` };
+            } else {
+                console.error('[revealHuntTreasure ERROR] Getter error was not an Error instance.');
+            }
         }
         // <<< END DEBUGGING >>>
 
@@ -763,13 +766,22 @@ export async function revealHuntTreasure(
         console.log(`[revealHuntTreasure INFO] Reveal transaction confirmed: ${tx.hash} in block ${receipt.blockNumber}`);
         return { success: true, transactionHash: tx.hash };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error(`[revealHuntTreasure ERROR] General error for CUID ${huntIdCUID} by FID ${callerFid}:`, error);
-        if (error.reason) {
-            console.error(`[revealHuntTreasure ERROR] Revert Reason: ${error.reason}`);
-            return { success: false, error: `Onchain error: ${error.reason}` };
+        
+        // Check for Ethers-like error structure with a 'reason'
+        // This is a common pattern but not strictly typed without importing Ethers error types
+        if (typeof error === 'object' && error !== null && 'reason' in error && typeof (error as any).reason === 'string') {
+            const revertReason = (error as any).reason as string;
+            console.error(`[revealHuntTreasure ERROR] Revert Reason: ${revertReason}`);
+            return { success: false, error: `Onchain error: ${revertReason}` };
+        } 
+        // Fallback to standard Error message
+        else if (error instanceof Error) {
+            return { success: false, error: error.message };
         }
-        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred revealing treasure." };
+        // Ultimate fallback
+        return { success: false, error: "An unknown error occurred revealing treasure." };
     }
 } 
 
