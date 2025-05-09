@@ -24,7 +24,7 @@ import {
     HuntDetails, 
     SubmitResult,
     claimNft,
-    revealHuntTreasure,
+    // revealHuntTreasure,
     claimHuntTurn
 } from '@/app/actions/hunt';
 import { HuntState } from '@prisma/client'; 

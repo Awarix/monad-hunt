@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useFarcaster } from "@/components/providers/FarcasterProvider";
 import { useAccount, useReadContract } from 'wagmi'; // Import Wagmi hooks
 import HuntMapNFTABI from '@/lib/abi/HuntMapNFTABI.json'; // ABI for the NFT contract
-import { getUserHuntHistory, UserHuntHistoryEntry } from '@/app/actions/hunt'; 
+import { admin_deleteAllHunts, getUserHuntHistory, UserHuntHistoryEntry } from '@/app/actions/hunt'; 
 import { HuntState, TreasureType } from '@prisma/client'; 
 
 // Helper function for Rarity Styles (copied from hunts/page.tsx - consider refactoring)
@@ -100,6 +100,9 @@ export default function HistoryPage() {
           >
               Your Hunt History
           </h1>
+          <button onClick={() => admin_deleteAllHunts()} className="text-[var(--color-accent)] hover:text-[var(--color-highlight)] transition-colors duration-200">
+            Delete All Hunts
+          </button>
           <Link href="/hunts" className="text-[var(--color-accent)] hover:text-[var(--color-highlight)] transition-colors duration-200">
                 &larr; Back to Active Hunts
            </Link>
