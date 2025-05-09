@@ -30,6 +30,7 @@ import {
 import { HuntState } from '@prisma/client'; 
 import { START_POSITION, GRID_SIZE } from '@/lib/constants'; 
 import { shortenAddress } from '@/lib/utils'; // Added import for shortenAddress
+import Image from 'next/image';
 
 const accentGlowStyle = {
   textShadow: `0 0 4px var(--color-accent), 0 0 6px rgba(62, 206, 206, 0.6)`,
@@ -117,7 +118,6 @@ export default function HuntPage() {
   >('idle');
   const [claimNftError, setClaimNftError] = useState<string | null>(null);
   const [tokenUri, setTokenUri] = useState<string | null>(null);
-  const [mintTxHash, setMintTxHash] = useState<`0x${string}` | undefined>(undefined);
 
   // Read hook to check if user has already minted
   const { data: hasMintedData, isLoading: isLoadingHasMinted, error: hasMintedError, refetch: refetchHasMinted } = useReadContract({
@@ -152,9 +152,9 @@ export default function HuntPage() {
   // -------------------------------
 
   // --- Reveal Treasure State ---
-  const [revealStatus, setRevealStatus] = useState<'idle' | 'submitting' | 'confirming' | 'revealed' | 'error'>('idle');
-  const [revealError, setRevealError] = useState<string | null>(null);
-  const [revealTxHash, setRevealTxHash] = useState<`0x${string}` | undefined>(undefined);
+  // const [revealStatus, setRevealStatus] = useState<'idle' | 'submitting' | 'confirming' | 'revealed' | 'error'>('idle');
+  // const [revealError, setRevealError] = useState<string | null>(null);
+  // const [revealTxHash, setRevealTxHash] = useState<`0x${string}` | undefined>(undefined);
   // ---------------------------
 
 
@@ -653,7 +653,6 @@ export default function HuntPage() {
     console.log("Initiating mint transaction with URI:", tokenUri, "for onchainHuntId:", numericOnchainHuntIdForFrontend.toString());
     setClaimNftStatus('submitting_mint');
     setClaimNftError(null);
-    setMintTxHash(undefined);
 
     try {
         const hash = await mintNftAsync({
@@ -663,7 +662,6 @@ export default function HuntPage() {
             args: [connectedAddress, numericOnchainHuntIdForFrontend, tokenUri], // Corrected args: _to, _huntId, _tokenURI
         });
         console.log("Mint transaction submitted to wallet, hash:", hash);
-        setMintTxHash(hash);
         // Status moves to 'confirming_mint' via effect below
     } catch {
         console.error("Error submitting mint transaction to wallet:");
@@ -765,6 +763,7 @@ export default function HuntPage() {
   }, []);
 
   // --- Backend Action Call: Reveal Treasure ---
+  /* // Linter: handleRevealTreasure is assigned but never used (UI is commented out)
   const handleRevealTreasure = useCallback(async () => {
       if (!huntId || !userFid) {
           setRevealError("Missing hunt ID or user FID.");
@@ -801,6 +800,7 @@ export default function HuntPage() {
           setRevealStatus('error');
       }
   }, [huntId, userFid, revealStatus]);
+  */
   // -----------------------------------------
 
   // --- Helper to determine button text and disabled state for NFT Minting ---
@@ -1032,10 +1032,13 @@ export default function HuntPage() {
           {/* Display NFT Image if tokenUri is available and relevant status */}
           {tokenUri && ['ready_to_mint', 'submitting_mint', 'confirming_mint', 'minted'].includes(claimNftStatus) && (
             <div className="my-4 p-3 bg-black/30 rounded-md border border-purple-600/50">
-              <img 
+              <Image 
                 src={tokenUri} 
                 alt={claimNftStatus === 'minted' ? "Minted Hunt Map NFT" : "Hunt Map NFT Preview"} 
+                width={400} // Example width, adjust as needed based on max-w-sm or desired display
+                height={210} // Example height, (400 * 500/800 for 800x500 OG aspect ratio) adjust as needed
                 className={`w-full max-w-sm mx-auto rounded-md border-2 ${claimNftStatus === 'minted' ? 'border-green-500' : 'border-purple-500'} shadow-xl mb-3`}
+                priority // Prioritize loading as it's important when visible
               />
             </div>
           )}
