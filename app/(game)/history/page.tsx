@@ -5,7 +5,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useFarcaster } from "@/components/providers/FarcasterProvider";
 import { useAccount, useReadContract } from 'wagmi'; // Import Wagmi hooks
 import HuntMapNFTABI from '@/lib/abi/HuntMapNFTABI.json'; // ABI for the NFT contract
-import { admin_deleteAllHunts, getUserHuntHistory, UserHuntHistoryEntry } from '@/app/actions/hunt'; 
+import { getUserHuntHistory, UserHuntHistoryEntry } from '@/app/actions/hunt'; 
 import { HuntState, TreasureType } from '@prisma/client'; 
 
 // Helper function for Rarity Styles (adapted for new theme)

@@ -29,7 +29,6 @@ import {
 } from '@/app/actions/hunt';
 import { HuntState } from '@prisma/client'; 
 import { START_POSITION, GRID_SIZE } from '@/lib/constants'; 
-import { shortenAddress } from '@/lib/utils'; // Added import for shortenAddress
 import Image from 'next/image';
 
 // Get contract address from environment variable
@@ -854,7 +853,7 @@ export default function HuntPage() {
 
   // Base styles for new theme buttons
   const baseButtonStyle = "font-bold py-2.5 px-6 rounded-full border-4 border-[var(--theme-border-color)] text-[var(--theme-button-primary-text)] hover:scale-105 transition-transform shadow-sm disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100";
-  const primaryButtonBg = "bg-[var(--theme-button-primary-bg)]";
+  // const primaryButtonBg = "bg-[var(--theme-button-primary-bg)]";
   const secondaryButtonBg = "bg-[var(--theme-button-secondary-bg)]"; // For things like "Switch Network"
   const greenButtonBg = "bg-green-500 hover:bg-green-600"; // Keep for specific semantic colors if needed
   const indigoButtonBg = "bg-indigo-500 hover:bg-indigo-600"; // Keep for specific semantic colors if needed
