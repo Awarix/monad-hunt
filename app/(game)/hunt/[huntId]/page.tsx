@@ -29,7 +29,7 @@ import {
 } from '@/app/actions/hunt';
 import { HuntState } from '@prisma/client'; 
 import { START_POSITION, GRID_SIZE } from '@/lib/constants'; 
-import { shortenAddress } from '@/lib/utils'; // Added import for shortenAddress
+// import { shortenAddress } from '@/lib/utils'; // Added import for shortenAddress
 import Image from 'next/image';
 
 const accentGlowStyle = {
