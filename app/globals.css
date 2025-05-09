@@ -1,58 +1,63 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0B0018;
-  --foreground: #1f1133;
-  --color-primary-bg: #0B0018;  
-  --color-secondary-bg-start: #1f1133; 
-  --color-accent: #3ECECE; 
-  --color-highlight: #8A2BE2; 
-  --color-text-header: var(--color-accent); 
-  --color-text-body: #e0e0e0; 
+  /* New Comic Theme Variables */
+  --theme-bg-start: #FBBF24; /* amber-400 */
+  --theme-bg-end: #FDE68A; /* amber-200 */
+  --theme-card-bg: #FFFFFF;
+  --theme-secondary-card-bg: #CCFBF1; /* teal-100 */
+  --theme-border-color: #000000;
+  --theme-border-width: 4px; /* For use in custom properties if needed, otherwise use border-4 */
+  --theme-text-primary: #000000;
+  --theme-text-secondary: #1F2937; /* gray-800 */
+
+  --theme-button-primary-bg: #FACC15; /* yellow-400 */
+  --theme-button-primary-text: #000000;
+  --theme-button-secondary-bg: #2DD4BF; /* teal-400 */
+  --theme-button-secondary-text: #000000;
+
+  --theme-grid-cell-bg: #CCFBF1; /* teal-100 */
+  --theme-grid-player-bg: #FACC15; /* yellow-400 */
+  --theme-grid-path-bg: #F9A8D4; /* pink-300 */
+  --theme-grid-treasure-bg: #A78BFA; /* purple-400 (from example, can adjust) */
+  --theme-grid-mob-bg: #F87171; /* red-500 (from example, can adjust) */
+
+  /* Old variables to be deprecated/removed - listed for reference during transition */
+  /* --background: #0B0018; */
+  /* --foreground: #1f1133; */
+  /* --color-primary-bg: #0B0018;   */
+  /* --color-secondary-bg-start: #1f1133;  */
+  /* --color-accent: #3ECECE;  */
+  /* --color-highlight: #8A2BE2;  */
+  /* --color-text-header: var(--color-accent);  */
+  /* --color-text-body: #e0e0e0;  */
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* These might not be directly used if Tailwind applies styles directly */
+  /* --color-background: var(--theme-bg-start); /* Or a solid color if gradient is body-specific */
+  /* --color-foreground: var(--theme-card-bg); */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
+/* Remove dark mode specific overrides if we are not supporting it with this theme */
+/* @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
   }
-}
+} */
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* background: var(--theme-bg-start); /* Solid fallback or primary for gradient */
+  /* For gradient, it's often better to apply to a specific wrapper or use Tailwind classes */
+  color: var(--theme-text-primary);
+  font-family: Arial, Helvetica, sans-serif; /* Consider keeping Geist Sans if it fits comic style */
 }
 
-/* Custom Animations */
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 8px 2px var(--color-accent), inset 0 0 5px 1px var(--color-accent);
-    opacity: 0.8;
-  }
-  50% {
-    box-shadow: 0 0 12px 4px var(--color-accent), inset 0 0 8px 2px var(--color-accent);
-    opacity: 1;
-  }
-}
+/* Remove Custom Animations if they don't fit the new theme */
+/* @keyframes pulse-glow { ... } */
+/* @keyframes pulse-text-green { ... } */
 
-@keyframes pulse-text-green {
-  0%, 100% { text-shadow: 0 0 5px rgba(74, 222, 128, 0.7); opacity: 0.8; }
-  50% { text-shadow: 0 0 10px rgba(74, 222, 128, 1); opacity: 1; }
-}
-
-@layer utilities {
-  .animate-pulse-glow {
-    animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-  .animate-pulse-text-green {
-    animation: pulse-text-green 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-} 
+/* @layer utilities { ... } */

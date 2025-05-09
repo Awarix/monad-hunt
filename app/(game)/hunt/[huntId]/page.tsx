@@ -29,15 +29,8 @@ import {
 } from '@/app/actions/hunt';
 import { HuntState } from '@prisma/client'; 
 import { START_POSITION, GRID_SIZE } from '@/lib/constants'; 
-// import { shortenAddress } from '@/lib/utils'; // Added import for shortenAddress
+import { shortenAddress } from '@/lib/utils'; // Added import for shortenAddress
 import Image from 'next/image';
-
-const accentGlowStyle = {
-  textShadow: `0 0 4px var(--color-accent), 0 0 6px rgba(62, 206, 206, 0.6)`,
-};
-const redGlowStyle = {
-    textShadow: `0 0 4px #FF4444, 0 0 6px rgba(255, 68, 68, 0.6)`,
-};
 
 // Get contract address from environment variable
 const managerContractAddress = process.env.NEXT_PUBLIC_TREASURE_HUNT_MANAGER_ADDRESS as `0x${string}` | undefined;
@@ -816,24 +809,22 @@ export default function HuntPage() {
 
   // --- Loading and Error States --- 
   if (!isFarcasterLoaded) {
-      // Apply base text color
-      return <div className="container mx-auto p-4 text-center text-[var(--color-text-body)]"><p>Loading Farcaster Context...</p></div>;
+      // Apply new theme text color
+      return <div className="container mx-auto p-4 text-center text-[var(--theme-text-primary)]"><p>Loading Farcaster Context...</p></div>;
   }
   if (!currentUser && !pageError && !providerError) { 
-      // Apply base text color
-      return <div className="container mx-auto p-4 text-center text-[var(--color-text-body)]"><p>Verifying User...</p></div>;
+      // Apply new theme text color
+      return <div className="container mx-auto p-4 text-center text-[var(--theme-text-primary)]"><p>Verifying User...</p></div>;
   }
   if (pageError || providerError) {
-     // Style error message
+     // Style error message for new theme
      return (
         <div className="container mx-auto p-4 text-center">
-            <p className="text-red-400 font-semibold text-lg" style={redGlowStyle}>Error:</p>
-            <p className="text-[var(--color-text-body)] opacity-90 mt-1">{pageError || providerError}</p>
-            {/* Style link */}
+            <p className="text-red-600 font-bold text-xl mb-2">Error:</p>
+            <p className="text-[var(--theme-text-secondary)] opacity-90 mt-1">{pageError || providerError}</p>
             <Link 
                 href="/hunts" 
-                className="text-[var(--color-accent)] hover:text-[var(--color-highlight)] transition-colors duration-200 mt-4 block"
-                style={accentGlowStyle}
+                className="mt-6 inline-block font-semibold py-2.5 px-6 rounded-full border-4 border-[var(--theme-border-color)] text-[var(--theme-button-secondary-text)] bg-[var(--theme-button-secondary-bg)] hover:scale-105 transition-transform shadow-sm"
             >
                 &larr; Back to Hunts List
             </Link>
@@ -841,57 +832,55 @@ export default function HuntPage() {
     );
   }
    if (!huntDetails) {
-      // Apply base text color
-       return <div className="container mx-auto p-4 text-center text-[var(--color-text-body)]"><p>Loading Hunt Data...</p></div>;
+      // Apply new theme text color
+       return <div className="container mx-auto p-4 text-center text-[var(--theme-text-primary)]"><p>Loading Hunt Data...</p></div>;
   }
   // -------------------------------
 
   // Show loading indicator if essential data isn't ready
-  if (isLoading || !isFarcasterLoaded) {
-    return <div className="flex justify-center items-center h-screen text-white">Loading game...</div>;
+  if (isLoading || !isFarcasterLoaded) { // isFarcasterLoaded check is redundant due to above, but harmless
+    return <div className="flex justify-center items-center h-screen text-[var(--theme-text-primary)]">Loading game...</div>;
   }
 
-  // Show error if Farcaster failed or hunt data failed to load
-  if (pageError) {
-    return <div className="flex flex-col justify-center items-center h-screen text-red-400"><p>Error:</p><p>{pageError}</p><Link href="/hunts" className="mt-4 text-accent hover:underline">Back to Hunts</Link></div>;
-  }
+  // Show error if Farcaster failed or hunt data failed to load (already handled above, this is fallback)
+  // if (pageError) { ... }
 
-  // Show message if hunt not found (should be covered by pageError, but as fallback)
-  if (!huntDetails) {
-    return <div className="flex flex-col justify-center items-center h-screen text-yellow-400"><p>Could not find hunt details for ID: {huntId}</p><Link href="/hunts" className="mt-4 text-accent hover:underline">Back to Hunts</Link></div>;
-  }
+  // Show message if hunt not found (already handled above, this is fallback)
+  // if (!huntDetails) { ... }
 
    // --- Determine display elements based on state ---
   const showProcessingMove = txStatus === 'submitting' || txStatus === 'confirming' || txStatus === 'updating_db';
   const allowGridInteraction = doesUserHoldActiveLock && !showProcessingMove && txStatus !== 'error'; // Allow clicks only if it's user's turn and no tx active/error
 
-  // Style for buttons (reusable)
-  const actionButtonStyle = `
-    w-full sm:w-auto mt-4 px-6 py-3 rounded-lg font-semibold text-white 
-    bg-purple-600 hover:bg-purple-700 disabled:bg-gray-500 
-    transition duration-150 ease-in-out shadow-md focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-opacity-75
-  `;
+  // Base styles for new theme buttons
+  const baseButtonStyle = "font-bold py-2.5 px-6 rounded-full border-4 border-[var(--theme-border-color)] text-[var(--theme-button-primary-text)] hover:scale-105 transition-transform shadow-sm disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100";
+  const primaryButtonBg = "bg-[var(--theme-button-primary-bg)]";
+  const secondaryButtonBg = "bg-[var(--theme-button-secondary-bg)]"; // For things like "Switch Network"
+  const greenButtonBg = "bg-green-500 hover:bg-green-600"; // Keep for specific semantic colors if needed
+  const indigoButtonBg = "bg-indigo-500 hover:bg-indigo-600"; // Keep for specific semantic colors if needed
+  const cyanButtonBg = "bg-cyan-500 hover:bg-cyan-600"; // Keep for specific semantic colors if needed
+
 
   // --- Network Check --- 
   if (isConnected && chainId !== monadTestnet.id) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-purple-900 text-gray-100 flex flex-col items-center justify-center p-4">
-        <div className="bg-gray-800 p-8 rounded-lg shadow-xl text-center">
-          <h2 className="text-2xl font-semibold mb-4 text-yellow-400">Incorrect Network</h2>
-          <p className="mb-6 text-gray-300">Please switch your wallet to the Monad Testnet to play.</p>
+      <div className="min-h-screen flex flex-col items-center justify-center p-4">
+        <div className="bg-[var(--theme-card-bg)] p-8 rounded-2xl shadow-xl text-center border-4 border-[var(--theme-border-color)]">
+          <h2 className="text-2xl font-bold mb-4 text-red-600">Incorrect Network</h2>
+          <p className="mb-6 text-[var(--theme-text-secondary)]">Please switch your wallet to the Monad Testnet to play.</p>
           {switchChain ? (
             <button
               onClick={() => switchChain({ chainId: monadTestnet.id })}
-              className={actionButtonStyle + ` bg-yellow-500 hover:bg-yellow-600 focus:ring-yellow-400 text-black`}
-              disabled={isSwitchingChain} // Disable while switching
+              className={`${baseButtonStyle} ${secondaryButtonBg}`}
+              disabled={isSwitchingChain} 
             >
               {isSwitchingChain ? 'Switching Network...' : 'Switch to Monad Testnet'}
             </button>
           ) : (
-            <p className="text-gray-400">Your wallet does not support programmatic chain switching. Please switch manually in your wallet.</p>
+            <p className="text-[var(--theme-text-secondary)]">Your wallet does not support programmatic chain switching. Please switch manually.</p>
           )}
           {switchChainError && (
-            <p className="mt-2 text-sm text-red-400">Error switching network: {switchChainError.message}</p>
+            <p className="mt-2 text-sm text-red-600">Error switching network: {switchChainError.message}</p>
           )}
         </div>
       </div>
@@ -900,7 +889,7 @@ export default function HuntPage() {
   // ---------------------
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-purple-950 via-indigo-950 to-black text-white font-sans overflow-hidden">
+    <div className="flex flex-col min-h-screen text-[var(--theme-text-primary)] font-sans overflow-hidden p-4 md:p-6">
       
       {/* Render Header */} 
       {huntDetails && (
@@ -987,10 +976,10 @@ export default function HuntPage() {
 
       {/* --- NFT Claim Section --- */} 
       {isHuntEnded && (
-        <div className="w-full max-w-md mx-auto mt-6 mb-4 p-4 bg-gray-800 rounded-lg shadow-lg text-center">
-          <h3 className="text-lg font-semibold mb-3 text-cyan-300">Hunt Complete!</h3>
+        <div className="w-full max-w-lg mx-auto mt-8 mb-6 p-6 bg-[var(--theme-card-bg)] rounded-2xl border-4 border-[var(--theme-border-color)] shadow-xl text-center">
+          <h3 className="text-2xl font-bold mb-6 text-[var(--theme-text-primary)] uppercase tracking-wider">Hunt Complete!</h3>
           
-          {/* Display NFT Image if tokenUri is available - integrated from new logic */} 
+          {/* Display NFT Image if tokenUri is available */} 
           {tokenUri && ('ready_to_mint' === claimNftStatus || 'submitting_mint' === claimNftStatus || 'confirming_mint' === claimNftStatus || 'minted' === claimNftStatus) && (
             <div className="my-4 p-3 bg-black/30 rounded-md border border-purple-600/50">
               <Image 
@@ -1022,7 +1011,7 @@ export default function HuntPage() {
               <button 
                   onClick={handleClaimNft}
                   disabled={isSwitchingChain || chainId !== monadTestnet.id || !isConnected}
-                  className="px-6 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`${baseButtonStyle} ${cyanButtonBg}`}
               >
                  Prepare NFT Details
               </button>
@@ -1036,7 +1025,7 @@ export default function HuntPage() {
               <button 
                   onClick={handleMintNft}
                   disabled={isSwitchingChain || chainId !== monadTestnet.id || !isConnected}
-                  className="px-6 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white font-semibold transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`${baseButtonStyle} ${greenButtonBg}`}
               >
                   Mint Your NFT Map!
               </button>
@@ -1087,7 +1076,7 @@ export default function HuntPage() {
                  Please switch to Monad Testnet to mint your NFT.
                  <button 
                      onClick={() => switchChain({ chainId: monadTestnet.id })}
-                     className="ml-2 px-2 py-1 text-xs bg-orange-600 hover:bg-orange-700 rounded-md text-white"
+                     className={`ml-2 px-3 py-1.5 text-xs rounded-md border-2 border-[var(--theme-border-color)] ${secondaryButtonBg} text-[var(--theme-button-secondary-text)] font-semibold`}
                      disabled={isSwitchingChain}
                  >
                      {isSwitchingChain ? 'Switching...' : 'Switch Network'}
@@ -1097,7 +1086,7 @@ export default function HuntPage() {
           {switchChainError && <p className="text-xs text-red-400 mt-1">Error switching network: {switchChainError.message}</p>}
 
           {/* --- Reveal Treasure Section (within Hunt Ended block) --- */} 
-          <div className="mt-6 border-t border-gray-700 pt-4">
+          <div className="mt-8 border-t-2 border-[var(--color-accent)]/30 pt-6">
               {/* Show reveal button if user participated/created AND treasure not yet revealed AND hunt is ended */} 
               {isHuntEnded && 
                (huntDetails?.moves.some(m => m.userId === userFid)) && 
@@ -1107,7 +1096,7 @@ export default function HuntPage() {
                  <button
                     onClick={handleRevealTreasure}
                     disabled={revealStatus === 'submitting' || revealStatus === 'confirming' || !isConnected || (isConnected && chainId !== monadTestnet.id) }
-                    className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`${baseButtonStyle} ${indigoButtonBg}`}
                  >
                     {revealStatus === 'submitting' || revealStatus === 'confirming' ? 'Revealing...' : 'Reveal Treasure Location'}
                  </button>
@@ -1141,7 +1130,7 @@ export default function HuntPage() {
                      Please switch to Monad Testnet to reveal treasure.
                      <button 
                          onClick={() => switchChain({ chainId: monadTestnet.id })}
-                         className="ml-2 px-2 py-1 text-xs bg-orange-600 hover:bg-orange-700 rounded-md text-white"
+                         className={`ml-2 px-3 py-1.5 text-xs rounded-md border-2 border-[var(--theme-border-color)] ${secondaryButtonBg} text-[var(--theme-button-secondary-text)] font-semibold`}
                          disabled={isSwitchingChain}
                      >
                          {isSwitchingChain ? 'Switching...' : 'Switch Network'}
@@ -1155,21 +1144,21 @@ export default function HuntPage() {
       {/* --- End NFT Claim Section --- */} 
 
       {isHuntActive && (
-          <div className="mt-6 flex flex-col items-center relative z-51"> 
+          <div className="w-full max-w-md mx-auto mt-6 mb-8 p-6 bg-[var(--theme-card-bg)] rounded-xl border-4 border-[var(--theme-border-color)] shadow-xl flex flex-col items-center relative z-10">
               {!canAttemptMove && canClaimTurn && (
                   <button
                       onClick={handleClaimTurn}
                       disabled={isClaimingTurn || !isConnected || !currentUser}
-                      className={actionButtonStyle + ` bg-green-600 hover:bg-green-700 focus:ring-green-400`}
+                      className={`${baseButtonStyle} ${greenButtonBg}`}
                   >
                       {/* {console.log('[Debug ClaimTurn] Claim Button Rendered. Disabled Status:', { isClaimingTurn, notIsConnected: !isConnected, notCurrentUser: !currentUser, combined: isClaimingTurn || !isConnected || !currentUser })} */}
                       {isClaimingTurn ? 'Claiming...' : 'Claim Turn'}
                   </button>
               )}
-              {claimTurnError && <p className="mt-2 text-sm text-red-400" style={redGlowStyle}>{claimTurnError}</p>}
+              {claimTurnError && <p className="mt-2 text-sm text-red-600 font-semibold">{claimTurnError}</p>}
 
               {canAttemptMove && (
-                   <p className="text-lg text-cyan-300 font-semibold animate-pulse" style={accentGlowStyle}>
+                   <p className="text-lg text-[var(--theme-text-primary)] font-semibold">
                       Your turn! Select an adjacent cell.
                   </p>
               )}

@@ -55,7 +55,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
-      <body>
+      <body className={`bg-gradient-to-br from-[var(--theme-bg-start)] to-[var(--theme-bg-end)] text-[var(--theme-text-primary)]`}>
         <FarcasterProvider>
           <WalletProvider>
             {children}

@@ -79,24 +79,24 @@ const StatusBar: React.FC<StatusBarProps> = ({
 //   const textStyle = "text-sm text-[var(--color-text-body)] opacity-80 text-center";
 
   return (
-    <div className="w-full max-w-md mt-4 p-3 bg-gray-800 rounded-lg shadow-md text-center">
+    <div className="w-full max-w-lg mx-auto mt-4 p-4 bg-[var(--theme-secondary-card-bg)] rounded-xl border-4 border-[var(--theme-border-color)] shadow-lg text-center">
         {/* Display Tx Status OR Hunt Status */} 
         {txMessage ? (
-            <p className={`text-sm ${txStatus === 'error' ? 'text-red-400' : 'text-yellow-400'}`}>
+            <p className={`text-base font-semibold ${txStatus === 'error' ? 'text-red-600' : 'text-orange-600'}`}>
                 {txMessage}
-                {txStatus === 'confirming' && lastTxHash && (
+                {(txStatus === 'confirming' || txStatus === 'submitting') && lastTxHash && (
                     <a 
                         href={`${blockExplorerUrl}/tx/${lastTxHash}`} 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="ml-2 text-blue-400 hover:underline text-xs"
+                        className="ml-2 text-teal-600 hover:text-teal-700 font-semibold text-xs"
                     >
                         (View Tx)
                     </a>
                 )}
              </p>
         ) : (
-             <p className="text-sm text-gray-300">{statusMessage}</p>
+             <p className="text-base text-[var(--theme-text-secondary)] font-semibold">{statusMessage}</p>
         )}
       
       {/* Show Timer only if it's my locked turn and no tx is in progress */}

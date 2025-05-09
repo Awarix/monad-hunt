@@ -6,53 +6,39 @@ import { useRouter } from 'next/navigation';
 import { useFarcaster } from "@/components/providers/FarcasterProvider";
 import { listHunts, createHunt, ListedHunt } from '@/app/actions/hunt'; 
 import type { HuntsListUpdatePayload } from '@/types';
-import {  TreasureType } from '@prisma/client'; 
+import { TreasureType, HuntState } from '@prisma/client';
+import { MAX_STEPS } from '@/lib/constants';
 
-const headerGlowStyle = {
-    textShadow: `0 0 8px var(--color-text-header), 0 0 12px rgba(62, 206, 206, 0.6)`,
-};
-const redGlowStyle = {
-    textShadow: `0 0 4px #FF4444, 0 0 6px rgba(255, 68, 68, 0.6)`,
-};
+// Remove old glow styles
+// const headerGlowStyle = { ... };
+// const redGlowStyle = { ... };
 
-// --- Helper Function for Rarity Styles ---
+// --- Helper Function for Rarity Styles (adjust for new theme if needed, or simplify) ---
 const getRarityStyles = (treasureType: TreasureType): { 
   textClass: string; 
-  glowStyle?: React.CSSProperties; 
-  buttonBorderStyle: string; 
-  buttonHoverBg?: string; 
-  buttonFocusRing: string;
+  // glowStyle?: React.CSSProperties; // Remove glow
+  // buttonBorderStyle: string; 
+  // buttonHoverBg?: string; 
+  // buttonFocusRing: string;
 } => {
   switch (treasureType) {
     case TreasureType.RARE:
       return { 
-        textClass: 'text-sky-400',
-        glowStyle: { textShadow: '0 0 8px #38BDF8' },
-        buttonBorderStyle: 'border-sky-400', 
-        buttonHoverBg: 'hover:bg-sky-700/30', 
-        buttonFocusRing: 'focus:ring-sky-400'
+        textClass: 'text-blue-600 font-semibold', // Example: Keep color distinction, remove glow
       };
     case TreasureType.EPIC:
       return { 
-        textClass: 'text-fuchsia-500',
-        glowStyle: { textShadow: '0 0 10px #D946EF' },
-        buttonBorderStyle: 'border-fuchsia-500', 
-        buttonHoverBg: 'hover:bg-fuchsia-700/30', 
-        buttonFocusRing: 'focus:ring-fuchsia-500' 
-      };
+        textClass: 'text-purple-600 font-semibold',
+      }; 
     case TreasureType.COMMON:
     default:
       return { 
-        textClass: 'text-gray-300',
-        glowStyle: undefined,
-        buttonBorderStyle: 'border-gray-400', 
-        buttonHoverBg: 'hover:bg-gray-700/30', 
-        buttonFocusRing: 'focus:ring-gray-400'
+        textClass: 'text-[var(--theme-text-secondary)]',
       }; 
   }
 };
 
-// --- Style Constants ---
+// --- Style Constants (Removed old ones) ---
 
 // Updated Card Style based on STYLES.md
 // const glassCardStyle = `
@@ -92,35 +78,13 @@ export default function HuntsListPage() {
   const { isLoaded: isFarcasterLoaded, frameContext, error: farcasterError } = useFarcaster();
   const router = useRouter();
 
-  // --- Tailwind Style Constants (Based on STYLES.md and reference) --- 
-  const cardBaseStyle = "rounded-lg bg-black/30 border border-purple-800/50 shadow-2xl shadow-purple-500/20 backdrop-blur-md p-4 flex flex-col justify-between hover:border-purple-600/80 transition-colors duration-200"; // Updated card style
+  // --- New Theme Style Constants --- 
+  const pageContainerStyle = "bg-[var(--theme-card-bg)] rounded-2xl shadow-xl p-6 md:p-8 border-4 border-[var(--theme-border-color)] max-w-4xl mx-auto my-8";
+  const cardBaseStyle = "bg-[var(--theme-secondary-card-bg)] rounded-xl p-4 border-4 border-[var(--theme-border-color)] flex flex-col sm:flex-row items-center justify-between gap-4";
   
-  // Updated Button style based on STYLES.md (similar to IconButton/FooterButton principles)
-  const createButtonStyle = `
-    px-5 py-2.5 rounded-lg border border-[var(--color-highlight)] 
-    bg-purple-800/60 hover:bg-purple-700/80 
-    text-white font-semibold text-sm 
-    backdrop-blur-sm shadow-md 
-    transition-all duration-200 ease-in-out 
-    focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-75 
-    disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-purple-800/60 disabled:shadow-none disabled:border-purple-800/50
-  `;
-
-  // Updated Join/View Button style (using Accent color)
-  const joinViewButtonStyle = `
-    px-4 py-2 rounded-lg border border-[var(--color-accent)] 
-    bg-cyan-700/40 hover:bg-cyan-600/60 
-    text-cyan-100 font-semibold text-xs 
-    backdrop-blur-sm shadow-md shadow-cyan-500/30 
-    transition-all duration-200 ease-in-out 
-    focus:outline-none focus:ring-2 focus:ring-cyan-300 focus:ring-opacity-75
-  `;
-  const disabledJoinViewButtonStyle = `
-    px-4 py-2 rounded-lg border border-gray-600 
-    bg-gray-800/40 
-    text-gray-500 font-semibold text-xs 
-    opacity-60 cursor-not-allowed backdrop-blur-sm shadow-none
-  `;
+  const primaryButtonStyle = `font-bold py-2.5 px-6 rounded-full border-4 border-[var(--theme-border-color)] text-[var(--theme-button-primary-text)] bg-[var(--theme-button-primary-bg)] hover:scale-105 transition-transform shadow-sm disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100`;
+  const secondaryButtonStyle = `font-bold py-2 px-4 rounded-full border-4 border-[var(--theme-border-color)] text-[var(--theme-button-secondary-text)] bg-[var(--theme-button-secondary-bg)] hover:scale-105 transition-transform shadow-sm text-sm disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100`;
+  const linkStyle = "text-teal-600 hover:text-teal-700 font-semibold transition-colors duration-200";
 
   // --- Data Fetching --- 
   const loadHunts = useCallback(async () => {
@@ -224,8 +188,8 @@ export default function HuntsListPage() {
   // Handle Farcaster loading/error state
   if (!isFarcasterLoaded || farcasterError) {
     return (
-      <div className="flex items-center justify-center min-h-screen p-4 text-center text-[var(--color-text-body)]">
-        <p className={farcasterError ? "text-red-400" : "opacity-80"} style={farcasterError ? redGlowStyle : {}}>
+      <div className="flex items-center justify-center min-h-screen p-4 text-center text-[var(--theme-text-primary)]">
+        <p className={farcasterError ? "text-red-600 font-semibold" : "opacity-80"}>
             {farcasterError ? `Farcaster Error: ${farcasterError}` : "Loading Farcaster Context..."}
         </p>
       </div>
@@ -233,100 +197,71 @@ export default function HuntsListPage() {
   }
 
   return (
-    // Main page container - remove max-w, adjust padding
-    <div className="container mx-auto p-4 sm:p-6 md:p-8"> 
-      <div className="flex justify-between items-center mb-6 sm:mb-8">
+    <div className={pageContainerStyle}> 
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 sm:mb-8 gap-4">
         <h1 
-          className="text-3xl sm:text-4xl font-bold text-[var(--color-text-header)] uppercase tracking-widest"
-          style={headerGlowStyle}
+          className="text-3xl sm:text-4xl font-bold text-[var(--theme-text-primary)] uppercase tracking-wider text-center sm:text-left"
+          // style={headerGlowStyle} // Removed glow
         >
           Active Hunts
         </h1>
         <div className="flex items-center space-x-4">
-            <Link href="/history" className="text-[var(--color-accent)] hover:text-[var(--color-highlight)] transition-colors duration-200 text-sm sm:text-base">
+            <Link href="/history" className={linkStyle}>
                 My Hunt History
             </Link>
             <button 
               onClick={handleCreateHunt}
               disabled={isCreating || !frameContext?.user?.fid}
-              className={createButtonStyle} // Apply updated style
+              className={`${primaryButtonStyle}`}
             >
               {isCreating ? "Creating..." : "Create New Hunt"}
             </button>
-            {!frameContext?.user?.fid && 
-                <p className="text-sm text-red-400 mt-3" style={redGlowStyle}>
-                    Connect with Farcaster to create a hunt.
-                </p>}
         </div>
       </div>
 
-      {/* Loading/Error Messages Area: Apply consistent styling */} 
-      {isLoading && 
-        <p className="text-center text-[var(--color-text-body)] opacity-70 mb-6 animate-pulse">
-            Loading hunts...
-        </p>
-      }
-      {error && 
-        <p className="text-red-300 text-center mb-6 p-3 rounded-lg bg-red-900/40 border border-red-700/60 backdrop-blur-sm text-sm" style={redGlowStyle}>
-            Error: {error}
-        </p>
-      }
-      {sseError && 
-        <p className="text-yellow-300 bg-yellow-900/40 border border-yellow-700/60 backdrop-blur-sm p-3 rounded-lg text-center text-sm mb-6">
-            Warning: {sseError}
-        </p>
-      }
+      {isLoading && <p className="text-center text-[var(--theme-text-secondary)] py-8">Loading hunts...</p>}
+      {error && <p className="text-center text-red-600 font-semibold py-8">Error: {error}</p>}
+      {sseError && <p className="text-center text-orange-600 font-semibold py-4">Notice: {sseError}</p>}
 
-      {/* Hunts List */} 
-      {!isLoading && !error && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {hunts.length > 0 ? (
-            hunts.map((hunt) => {
-              const isLockActive = hunt.lock && new Date(hunt.lock.expiresAt) > new Date();
-              const rarityStyles = getRarityStyles(hunt.treasureType);
+      {!isLoading && !error && hunts.length === 0 && (
+        <p className="text-center text-[var(--theme-text-secondary)] py-8">No active hunts available. Why not create one?</p>
+      )}
 
-              return (
-                <div key={hunt.id} className={cardBaseStyle}> {/* Apply updated card style */} 
-                  <div className="mb-4"> {/* Content wrapper - added margin bottom */} 
-                    <h2 
-                        className="text-xl font-semibold mb-3 text-[var(--color-text-header)] truncate uppercase tracking-wider" // Add uppercase/tracking
-                        style={headerGlowStyle}
+      {!isLoading && !error && hunts.length > 0 && (
+        <div className="space-y-6">
+          {hunts.map(hunt => {
+            const rarityStyle = getRarityStyles(hunt.treasureType);
+            const canJoin = hunt.state === HuntState.ACTIVE && (!hunt.lock || new Date(hunt.lock.expiresAt) < new Date());
+            const isLockedByOther = hunt.lock && new Date(hunt.lock.expiresAt) >= new Date();
+
+            return (
+              <div key={hunt.id} className={cardBaseStyle}>
+                <div className="flex-grow">
+                  <h2 className="text-xl font-bold text-[var(--theme-text-primary)] uppercase truncate">
+                    {hunt.name || `Hunt ${hunt.id.substring(0,6)}...`}
+                  </h2>
+                  <p className={`text-sm ${rarityStyle.textClass} mb-1`}>
+                    Treasure: {hunt.treasureType}
+                  </p>
+                  <p className="text-xs text-[var(--theme-text-secondary)]">
+                    Moves: {hunt.moveCount} / {MAX_STEPS} 
+                    {isLockedByOther && hunt.lock && <span className="ml-2 text-orange-600 font-semibold">Locked by FID {hunt.lock.playerFid}</span>}
+                    {!isLockedByOther && hunt.lock && <span className="ml-2 text-green-600 font-semibold">Lock Expired - Ready</span>}
+                  </p>
+                </div>
+                <div className="flex-shrink-0 mt-3 sm:mt-0">
+                  <Link href={`/hunt/${hunt.id}`}>
+                    <button 
+                        className={`${secondaryButtonStyle}`}
+                        disabled={!canJoin && !isLockedByOther} // Simplification, actual join logic on hunt page
                     >
-                        {hunt.name || `Hunt ${hunt.id.substring(0, 6)}`}
-                    </h2>
-                    <p className="text-sm text-gray-300 mb-1"> {/* Lighter text for labels */}
-                        Treasure: <span className={rarityStyles.textClass}>{hunt.treasureType.toLowerCase()}</span>
-                    </p>
-                    <p className="text-sm text-gray-300 mb-2"> {/* Lighter text for labels */}
-                        Moves Made: <span className="font-medium text-white">{hunt.moveCount}</span>
-                    </p>
-                    {/* Status Text: Refined styles */} 
-                    {isLockActive ? (
-                      <p className="text-yellow-400 text-xs mt-2 opacity-90">
-                        Locked by FID {hunt.lock?.playerFid}
-                      </p>
-                    ) : (
-                      <p className="text-green-400 text-xs mt-2" style={redGlowStyle}>
-                        Ready to Join
-                      </p>
-                    )}
-                  </div>
-
-                  <Link href={`/hunt/${hunt.id}`}
-                    className={`mt-auto text-center ${isLockActive ? disabledJoinViewButtonStyle : joinViewButtonStyle}`} // Apply updated styles & mt-auto
-                    aria-disabled={isLockActive ? "true" : undefined}
-                    onClick={(e) => { if (isLockActive) e.preventDefault(); }} // Prevent click if disabled
-                  >
-                    {isLockActive ? "Locked" : "View / Join"}
+                        {canJoin ? 'Join Hunt' : isLockedByOther ? 'View Locked' : 'View Details'}
+                    </button>
                   </Link>
                 </div>
-              );
-            })
-          ) : (
-            <p className="col-span-full text-center text-[var(--color-text-body)] opacity-60 mt-6">
-                No active hunts found. Why not create one?
-            </p>
-          )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

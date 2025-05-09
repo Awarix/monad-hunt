@@ -26,18 +26,20 @@ const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable
       const tappable = isCellTappable(currentPos);
       const isInteractable = !isLoading && !isGameOver && tappable;
 
-      let cellClasses = "w-full h-full border border-gray-700 flex items-center justify-center transition-colors duration-200 ";
+      let cellClasses = "w-full h-full border border-black/50 flex items-center justify-center transition-colors duration-150 rounded-sm"; // Base for all cells, slightly rounded
       
       if (isPlayer) {
-        cellClasses += " bg-blue-500/30"; 
+        cellClasses += " bg-transparent"; // Player icon is distinct
       } else if (isPath) {
-        cellClasses += " bg-gray-600/30"; 
+        cellClasses += " bg-[var(--theme-grid-path-bg)] opacity-70"; // Path cells
+      } else {
+        cellClasses += " bg-[var(--theme-grid-cell-bg)]"; // Default empty cell (teal-100)
       }
 
       if (isInteractable) {
-        cellClasses += " cursor-pointer hover:bg-cyan-500/40 ring-2 ring-cyan-400/50 ring-inset"; // Tappable style
-      } else if (tappable) {
-         cellClasses += " opacity-50"; // Visited adjacent style (non-tappable)
+        cellClasses += " cursor-pointer hover:bg-yellow-300 ring-2 ring-yellow-500 ring-inset"; 
+      } else if (tappable && !isPlayer) { 
+         cellClasses += " opacity-50"; // Adjacent, not interactable (e.g. part of path already)
       }
 
       cells.push(
@@ -47,24 +49,25 @@ const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable
           onClick={() => isInteractable && onCellTap(currentPos)}
         >
           {isPlayer && (
-            <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse"></div>
+            <div className="w-6 h-6 bg-[var(--theme-grid-player-bg)] rounded-full border-[3px] border-black shadow-md flex items-center justify-center">
+              {/* Optional inner detail for player icon */}
+              {/* <div className=\"w-2 h-2 bg-black/50 rounded-full\"></div> */}
+            </div>
           )}
-          {/* Optionally add move numbers or other indicators */}
         </div>
       );
     }
   }
 
   return (
-    <div className="relative w-full max-w-lg aspect-square shadow-lg bg-gray-800 rounded-lg p-2">
+    <div className="relative w-full max-w-lg aspect-square shadow-xl bg-[var(--theme-card-bg)] rounded-2xl border-4 border-[var(--theme-border-color)] p-2 md:p-3">
       <div 
-        className={`grid grid-cols-10 grid-rows-10 gap-0 w-full h-full ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
-      >
+        className={`grid grid-cols-10 grid-rows-10 gap-0.5 w-full h-full ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}>
         {cells}
       </div>
       {isLoading && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <p className="text-white text-lg font-semibold animate-pulse">Processing Move...</p>
+        <div className="absolute inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center rounded-xl">
+            <p className="text-[var(--theme-text-primary)] text-lg font-semibold animate-pulse">Processing Move...</p>
         </div>
       )}
     </div>

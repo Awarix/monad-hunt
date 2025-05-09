@@ -17,7 +17,7 @@ const IconButton: React.FC<IconButtonProps> = ({ onClick, children, ariaLabel, c
     onClick={onClick}
     aria-label={ariaLabel}
     disabled={disabled}
-    className={`p-2 rounded-full bg-purple-800/60 hover:bg-purple-700/80 text-cyan-300 hover:text-cyan-100 transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-75 backdrop-blur-sm shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-purple-800/60 ${className}`}
+    className={`p-2 rounded-lg bg-[var(--theme-button-secondary-bg)] text-[var(--theme-button-secondary-text)] border-2 border-[var(--theme-border-color)] hover:scale-105 transition-transform shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--theme-button-secondary-bg)]/70 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100 ${className}`}
   >
     {children}
   </button>
@@ -33,13 +33,10 @@ interface GameHeaderProps {
 
 const GameHeader: React.FC<GameHeaderProps> = ({ movesCount, maxMoves, onInfoClick }) => {
   // Glow style for header text (consistent with STYLES.md)
-  const headerGlowStyle = {
-    textShadow: `0 0 5px var(--color-text-header), 0 0 8px rgba(62, 206, 206, 0.5)`,
-  };
+  // const headerGlowStyle = { ... }; // Removed old glow style
 
   return (
-    // Header container styling based on STYLES.md and reference
-    <header className="w-full p-2 flex justify-between items-center bg-black/30 backdrop-blur-sm border-b border-purple-800/50 flex-shrink-0 space-x-2">
+    <header className="w-full p-3 flex justify-between items-center bg-[var(--theme-card-bg)] border-b-4 border-[var(--theme-border-color)] shadow-lg flex-shrink-0 space-x-2 md:space-x-3">
       {/* Back Button */} 
       <Link href="/hunts" className="flex-shrink-0">
         <IconButton ariaLabel="Back to Hunts List" className="">
@@ -59,15 +56,15 @@ const GameHeader: React.FC<GameHeaderProps> = ({ movesCount, maxMoves, onInfoCli
       </IconButton>
       {/* Title styled according to STYLES.md */}
       <h1 
-        className="flex-1 text-base md:text-lg font-bold text-[var(--color-text-header)] tracking-widest uppercase text-center truncate px-1"
-        style={headerGlowStyle}
+        className="flex-1 text-lg md:text-xl font-bold text-[var(--theme-text-primary)] tracking-wider uppercase text-center truncate px-1"
+        // style={headerGlowStyle} // Removed glow style
       >
         TREASURE HUNT
       </h1>
       {/* Moves Counter styled according to STYLES.md */}
       <div 
-        className="text-sm md:text-base font-semibold text-cyan-200 w-24 text-right shrink-0"
-        style={{ textShadow: '0 0 3px rgba(62, 206, 206, 0.4)' }} // Subtle glow for secondary text
+        className="text-sm md:text-base font-semibold text-[var(--theme-text-secondary)] w-28 text-right shrink-0"
+        // style={{ textShadow: '0 0 3px rgba(62, 206, 206, 0.4)' }} // Removed old text shadow
       >
         Moves: {movesCount}/{maxMoves}
       </div>

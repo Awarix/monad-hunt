@@ -9,16 +9,18 @@ export default function HomePage() {
   // Removed useEffect for redirection
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-gray-900 to-black text-white p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <Image 
         src="/logo200.png" 
         alt="Treasure Hunt Logo"
         width={150}
         height={150}
-        className="mb-8 rounded-full shadow-lg shadow-blue-500/30"
+        className="mb-8 rounded-full shadow-lg shadow-black/30"
       />
-      <h1 className="text-4xl md:text-5xl font-bold mb-4 text-center font-mono">Welcome to Treasure Hunt!</h1>
-      <p className="text-lg md:text-xl text-gray-300 mb-10 text-center max-w-xl">
+      <h1 className="text-4xl md:text-5xl font-bold mb-4 text-center font-mono text-[var(--theme-text-primary)]">
+        Welcome to Treasure Hunt!
+      </h1>
+      <p className="text-lg md:text-xl text-[var(--theme-text-secondary)] mb-10 text-center max-w-xl">
         Join collaborative hunts on Monad Testnet. Make moves, follow hints, and mint your map NFT.
       </p>
 
@@ -26,7 +28,7 @@ export default function HomePage() {
       <Link href="/hunts">
         <button
           type="button"
-          className="mt-6 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="mt-6 px-8 py-3 bg-[var(--theme-button-primary-bg)] text-[var(--theme-button-primary-text)] font-bold rounded-full border-4 border-[var(--theme-border-color)] hover:scale-105 transition-transform shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--theme-button-primary-bg)]"
         >
           View Active Hunts
         </button>
