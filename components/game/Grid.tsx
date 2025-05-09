@@ -54,13 +54,45 @@ const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable
               {/* <div className=\"w-2 h-2 bg-black/50 rounded-full\"></div> */}
             </div>
           )}
+          {/* Path Trajectory Lines - Draw line from this cell to next in path */} 
+          {isPath && moveHistory.length > 1 && (() => {
+            const currentMoveIndex = moveHistory.findIndex(p => p.x === x && p.y === y);
+            if (currentMoveIndex !== -1 && currentMoveIndex < moveHistory.length - 1) {
+              const nextMove = moveHistory[currentMoveIndex + 1];
+              const pathLineColor = "var(--theme-button-secondary-bg)"; // Teal
+              const strokeWidth = "3"; // Should match player border width somewhat
+
+              // Calculate line endpoints relative to the cell (0,0 to cellWidth, cellHeight)
+              // Line starts at center of current cell, goes to center of next cell
+              const lineX1 = "50%";
+              const lineY1 = "50%";
+              const lineX2 = `${(nextMove.x - x) * 100 + 50}%`;
+              const lineY2 = `${(nextMove.y - y) * 100 + 50}%`;
+              
+              return (
+                <svg 
+                  className="absolute top-0 left-0 w-full h-full pointer-events-none"
+                  style={{ overflow: 'visible' }} // Allow lines to draw outside cell bounds if needed
+                >
+                  <line 
+                    x1={lineX1} y1={lineY1} 
+                    x2={lineX2} y2={lineY2} 
+                    stroke={pathLineColor} 
+                    strokeWidth={strokeWidth} 
+                    strokeLinecap="round"
+                  />
+                </svg>
+              );
+            }
+            return null;
+          })()}
         </div>
       );
     }
   }
 
   return (
-    <div className="relative w-full max-w-lg aspect-square shadow-xl bg-[var(--theme-card-bg)] rounded-2xl border-4 border-[var(--theme-border-color)] p-2 md:p-3">
+    <div className="relative w-full max-w-2xl aspect-square shadow-xl bg-[var(--theme-card-bg)] rounded-2xl border-4 border-[var(--theme-border-color)] p-2 md:p-3">
       <div 
         className={`grid grid-cols-10 grid-rows-10 gap-0.5 w-full h-full ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}>
         {cells}

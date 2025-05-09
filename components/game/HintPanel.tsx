@@ -45,7 +45,7 @@ const HintPanel: React.FC<HintPanelProps> = ({ hints, isOpen, onClose }) => {
         `}
     >
       {/* Panel Header */}
-      <div className='flex justify-between items-center mb-3 pb-3 flex-shrink-0 border-b-2 border-[var(--theme-border-color)]/50'>
+      <div className='flex justify-between items-center mb-3 pb-3 flex-shrink-0 border-b-2 border-[var(--theme-border-color)]'>
         {/* Title styling */}
         <h2 
             className="text-xl font-bold text-[var(--theme-text-primary)] uppercase tracking-wide"

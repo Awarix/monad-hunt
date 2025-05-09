@@ -119,16 +119,22 @@ export default function HistoryPage() {
               <div key={hunt.id} className={cardBaseStyle}>
                 <div className="flex-grow pr-4">
                    <Link href={`/hunt/${hunt.id}`} className="hover:underline">
-                       <h2 className="text-xl font-bold text-[var(--theme-text-primary)] mb-1 truncate hover:text-teal-700">
+                       <h2 className="text-xl font-bold text-[var(--theme-text-primary)] mb-2 truncate hover:text-teal-700">
                            {hunt.name || `Hunt ${hunt.id.substring(0, 6)}...`}
                        </h2>
                    </Link>
-                   <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-sm">
-                       <span className={rarityStyle.textClass}>Treasure: {hunt.treasureType}</span>
-                       <span className="text-[var(--theme-text-secondary)]">Moves: {hunt.moveCount}</span>
-                       <span className={`font-semibold ${isEnded ? (hunt.outcome === 'WON' ? 'text-green-600' : 'text-red-600') : 'text-orange-600'}`}>
-                           {isEnded ? `Outcome: ${hunt.outcome}` : `Status: ${hunt.state}`}
-                       </span>
+                   <div className="space-y-1 text-sm">
+                        <p className="text-[var(--theme-text-primary)]">
+                            Treasure: <span className={rarityStyle.textClass}>{hunt.treasureType}</span>
+                        </p>
+                        <p className="text-[var(--theme-text-primary)]">
+                            Status: <span className={`font-semibold ${isEnded ? (hunt.outcome === 'WON' ? 'text-green-600' : 'text-red-600') : 'text-green-600'}`}>
+                                {isEnded ? hunt.outcome : hunt.state}
+                            </span>
+                        </p>
+                        <p className="text-[var(--theme-text-primary)]">
+                            Moves: <span className="font-semibold text-[var(--theme-text-secondary)]">{hunt.moveCount}</span>
+                        </p>
                    </div>
                 </div>
                 <div className="flex-shrink-0 mt-3 sm:mt-0">

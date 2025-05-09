@@ -963,16 +963,6 @@ export default function HuntPage() {
           />
       )}
 
-      {/* Temporary Debug Info */}
-      <div className="absolute bottom-2 left-2 bg-gray-800 p-2 rounded text-xs opacity-80 max-w-sm overflow-auto max-h-40 z-50">
-        <p>User FID: {userFid ?? 'N/A'}</p>
-        <p>Connected Addr: {connectedAddress ?? 'N/A'}</p>
-        {/* Ensure playerFid display handles potential null/undefined safely */}
-        <p>Lock Holder: {currentLock?.playerFid ?? 'None'}, Expires: {currentLock?.expiresAt ? new Date(currentLock.expiresAt).toLocaleTimeString() : 'N/A'}</p>
-        <p>Can Claim: {String(canUserClaimTurn)}</p>
-        <p>Holds Lock: {String(doesUserHoldActiveLock)}</p>
-      </div>
-
       {/* --- NFT Claim Section --- */} 
       {isHuntEnded && (
         <div className="w-full max-w-lg mx-auto mt-8 mb-6 p-6 bg-[var(--theme-card-bg)] rounded-2xl border-4 border-[var(--theme-border-color)] shadow-xl text-center">

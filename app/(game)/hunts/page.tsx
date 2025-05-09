@@ -244,9 +244,16 @@ export default function HuntsListPage() {
                     Treasure: {hunt.treasureType}
                   </p>
                   <p className="text-xs text-[var(--theme-text-secondary)]">
-                    Moves: {hunt.moveCount} / {MAX_STEPS} 
-                    {isLockedByOther && hunt.lock && <span className="ml-2 text-orange-600 font-semibold">Locked by FID {hunt.lock.playerFid}</span>}
-                    {!isLockedByOther && hunt.lock && <span className="ml-2 text-green-600 font-semibold">Lock Expired - Ready</span>}
+                    <span className="font-semibold">Moves: {hunt.moveCount} / {MAX_STEPS}</span>
+                    {isLockedByOther && hunt.lock && (
+                        <span className="ml-2 text-orange-600 font-semibold">Status: Locked by FID {hunt.lock.playerFid}</span>
+                    )}
+                    {!isLockedByOther && hunt.lock && (
+                        <span className="ml-2 text-green-600 font-semibold">Status: Lock Expired - Ready</span>
+                    )}
+                    {canJoin && (
+                        <span className="ml-2 text-green-600 font-semibold">Status: Ready to Join</span>
+                    )}
                   </p>
                 </div>
                 <div className="flex-shrink-0 mt-3 sm:mt-0">
