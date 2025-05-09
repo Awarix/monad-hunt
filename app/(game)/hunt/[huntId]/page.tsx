@@ -29,6 +29,7 @@ import {
 } from '@/app/actions/hunt';
 import { HuntState } from '@prisma/client'; 
 import { START_POSITION, GRID_SIZE } from '@/lib/constants'; 
+import { shortenAddress } from '@/lib/utils'; // Added import for shortenAddress
 
 const accentGlowStyle = {
   textShadow: `0 0 4px var(--color-accent), 0 0 6px rgba(62, 206, 206, 0.6)`,
@@ -488,7 +489,7 @@ export default function HuntPage() {
                           } else {
                               console.error("Backend submitMove failed:", result.error);
                               setTxError(result.error || "Backend failed to process the move after confirmation.");
-                              setTxStatus('error'); // Move to error state
+                              setTxStatus('error');
                           }
                       })
                       .catch(err => {
@@ -802,6 +803,56 @@ export default function HuntPage() {
   }, [huntId, userFid, revealStatus]);
   // -----------------------------------------
 
+  // --- Helper to determine button text and disabled state for NFT Minting ---
+  const getNftButtonProps = () => {
+    if (!isHuntEnded || !numericOnchainHuntIdForFrontend || !connectedAddress) {
+      return { text: "NFT Minting Unavailable", disabled: true, onClick: () => {} };
+    }
+
+    if (isLoadingHasMinted) {
+      return { text: "Checking Eligibility...", disabled: true, onClick: () => {} };
+    }
+
+    if (hasMintedData === true || claimNftStatus === 'already_minted') {
+      return { text: "NFT Already Minted", disabled: true, onClick: () => {}, hideButton: true }; // Hide button, show text instead
+    }
+
+    switch (claimNftStatus) {
+      case 'idle':
+      case 'eligible': // eligible state might be brief, can be combined with idle for button
+        return {
+          text: "Prepare NFT Details",
+          disabled: isSwitchingChain || chainId !== monadTestnet.id,
+          onClick: handleClaimNft,
+        };
+      case 'checking_eligibility': // This is covered by isLoadingHasMinted generally
+        return { text: "Checking Eligibility...", disabled: true, onClick: () => {} };
+      case 'fetching_uri':
+        return { text: "Fetching NFT Data...", disabled: true, onClick: () => {} };
+      case 'ready_to_mint':
+        return {
+          text: "Mint NFT Now",
+          disabled: isSwitchingChain || chainId !== monadTestnet.id,
+          onClick: handleMintNft,
+          className: "bg-green-600 hover:bg-green-700 focus:ring-green-500",
+        };
+      case 'submitting_mint':
+        return { text: "Confirm in Wallet...", disabled: true, onClick: () => {}, className: "bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500" };
+      case 'confirming_mint':
+        return { text: "Confirming Mint...", disabled: true, onClick: () => {}, className: "bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500" };
+      case 'minted':
+        return { text: "Minted Successfully!", disabled: true, onClick: () => {}, hideButton: true, className: "bg-green-600" }; // Hide button, show text instead
+      case 'not_eligible':
+         return { text: "Not Eligible to Mint", disabled: true, onClick: () => {}, hideButton: true };
+      case 'error':
+        return { text: "Error Preparing NFT", disabled: true, onClick: () => {} }; // Error text will be shown separately
+      default:
+        return { text: "NFT Action", disabled: true, onClick: () => {} };
+    }
+  };
+
+  const nftButtonProps = getNftButtonProps();
+
   // --- Loading and Error States --- 
   if (!isFarcasterLoaded) {
       // Apply base text color
@@ -974,123 +1025,78 @@ export default function HuntPage() {
       </div>
 
       {/* --- NFT Claim Section --- */} 
-      {isHuntEnded && (
-        <div className="w-full max-w-md mx-auto mt-6 mb-4 p-4 bg-gray-800 rounded-lg shadow-lg text-center">
-          <h3 className="text-lg font-semibold mb-3 text-cyan-300">Hunt Complete!</h3>
-          
-          {/* Eligibility Loading */} 
-          {claimNftStatus === 'checking_eligibility' && <p className="text-sm text-yellow-400 animate-pulse">Checking NFT eligibility...</p>}
+      {isHuntEnded && numericOnchainHuntIdForFrontend && connectedAddress && (
+        <div className="mt-6 p-4 border border-purple-700 rounded-lg shadow-lg bg-purple-900/30">
+          <h3 className="text-xl font-semibold mb-3 text-purple-300" style={accentGlowStyle}>Mint Your Hunt Map NFT</h3>
 
-          {/* Not Eligible */} 
-          {claimNftStatus === 'not_eligible' && <p className="text-sm text-gray-400">You did not participate in this hunt, so you cannot claim an NFT.</p>}
-          
-          {/* Already Minted */} 
-          {claimNftStatus === 'already_minted' && (
-            <div>
-                <p className="text-sm text-green-400">You have already minted the NFT for this hunt!</p>
-                {/* Optionally link to NFT on marketplace/explorer */} 
+          {/* Display NFT Image if tokenUri is available and relevant status */}
+          {tokenUri && ['ready_to_mint', 'submitting_mint', 'confirming_mint', 'minted'].includes(claimNftStatus) && (
+            <div className="my-4 p-3 bg-black/30 rounded-md border border-purple-600/50">
+              <img 
+                src={tokenUri} 
+                alt={claimNftStatus === 'minted' ? "Minted Hunt Map NFT" : "Hunt Map NFT Preview"} 
+                className={`w-full max-w-sm mx-auto rounded-md border-2 ${claimNftStatus === 'minted' ? 'border-green-500' : 'border-purple-500'} shadow-xl mb-3`}
+              />
             </div>
           )}
 
-          {/* Eligible - Show Claim Button */} 
-          {claimNftStatus === 'eligible' && (
-              <button 
-                  onClick={handleClaimNft}
-                  className="px-6 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                 Claim Hunt Map NFT
-              </button>
+          {/* Loading/Error/Status Messages */} 
+          {isLoadingHasMinted && <p className="text-sm text-yellow-400 italic">Checking if youve already minted...</p>}
+          {hasMintedError && <p className="text-sm text-red-500">Error checking mint status: {hasMintedError.message}</p>}
+          
+          {/* Handle already minted case directly without relying on claimNftStatus for this initial display */}
+          {hasMintedData === true && (
+              <p className="text-sm text-green-400">You have already minted this NFT!</p>
           )}
 
-          {/* Fetching URI state */} 
-          {claimNftStatus === 'fetching_uri' && <p className="text-sm text-yellow-400 animate-pulse">Preparing NFT details...</p>}
-
-          {/* Ready to Mint - Show Mint Button */} 
-          {claimNftStatus === 'ready_to_mint' && (
-              <button 
-                  onClick={handleMintNft}
-                  className="px-6 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white font-semibold transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                  Mint Your NFT Map!
-              </button>
+          {claimNftStatus === 'not_eligible' && (
+              <p className="text-sm text-orange-400">You are not eligible to mint this NFT.</p>
           )}
 
-          {/* Minting Transaction Status */} 
+          {/* Single Button for NFT Actions */} 
+          {hasMintedData === false && !nftButtonProps.hideButton && (
+            <button
+              onClick={nftButtonProps.onClick}
+              disabled={nftButtonProps.disabled || isSwitchingChain || chainId !== monadTestnet.id}
+              className={`w-full mt-2 px-4 py-2 font-semibold text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-opacity-75 ${nftButtonProps.className || 'bg-purple-600 hover:bg-purple-700 focus:ring-purple-500'}`}
+            >
+              {nftButtonProps.text}
+            </button>
+          )}
+
+          {/* Post-Mint Success Message & Tx Link */} 
+          {claimNftStatus === 'minted' && (
+              <div className="mt-2">
+                  <p className="text-lg font-semibold text-green-400 mb-1">NFT Minted Successfully!</p>
+                  {mintReceipt?.transactionHash && (
+                      <Link href={`${blockExplorerUrl}tx/${mintReceipt.transactionHash}`} target="_blank" rel="noopener noreferrer" className="text-sm text-cyan-400 hover:underline">
+                          View Transaction
+                      </Link>
+                  )}
+              </div>
+          )}
+          
+          {/* General Status/Error Display for ongoing processes */} 
           {(claimNftStatus === 'submitting_mint' || claimNftStatus === 'confirming_mint') && (
-             <div className="mt-2">
-                <p className="text-sm text-yellow-400 animate-pulse">
-                    {claimNftStatus === 'submitting_mint' ? 'Waiting for wallet approval...' : 'Confirming mint transaction onchain...'}
-                </p>
-                {mintSubmitTxHash && (
-                    <a 
-                        href={`${blockExplorerUrl}/tx/${mintSubmitTxHash}`}
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-400 hover:underline mt-1"
-                    >
-                        View Transaction
-                    </a>
-                )}
-             </div>
+              <p className="mt-2 text-sm text-yellow-400 italic">
+                  {claimNftStatus === 'submitting_mint' ? 'Please confirm the mint transaction in your wallet...' : 'Waiting for mint confirmation...'}
+                  {mintSubmitTxHash && <span className="block text-xs">(Tx: {shortenAddress(mintSubmitTxHash)})</span>}
+              </p>
           )}
-
-           {/* Minted Successfully */} 
-           {claimNftStatus === 'minted' && mintTxHash && (
-             <div className="mt-3">
-                 <p className="text-sm text-green-400">NFT minted successfully!</p>
-                 <a 
-                     href={`${blockExplorerUrl}/tx/${mintTxHash}`}
-                     target="_blank" 
-                     rel="noopener noreferrer"
-                     className="text-xs text-blue-400 hover:underline mt-1"
-                 >
-                     View Mint Transaction
-                 </a>
-                 {/* Optionally add link to view NFT */} 
-             </div>
-           )}
-
-          {/* Error Display */} 
-          {claimNftStatus === 'error' && claimNftError && (
-            <p className="text-sm text-red-400 mt-2">Error: {claimNftError}</p>
+          {claimNftError && <p className="mt-2 text-sm text-red-500">Error: {claimNftError}</p>}
+          {(isSwitchingChain || (chainId !== monadTestnet.id && isConnected && isHuntEnded)) && (
+              <p className="mt-2 text-sm text-orange-500">
+                  Please switch to Monad Testnet to mint your NFT.
+                  <button 
+                      onClick={() => switchChain({ chainId: monadTestnet.id })}
+                      className="ml-2 px-2 py-1 text-xs bg-orange-600 hover:bg-orange-700 rounded-md text-white"
+                      disabled={isSwitchingChain}
+                  >
+                      {isSwitchingChain ? 'Switching...' : 'Switch Network'}
+                  </button>
+              </p>
           )}
-
-          {/* --- Reveal Treasure Section (within Hunt Ended block) --- */} 
-          <div className="mt-6 border-t border-gray-700 pt-4">
-              {/* For now, show button if user participated/created */} 
-              {/* Need creator FID from huntDetails if we check isCreator */} 
-              {huntDetails?.moves.some(m => m.userId === userFid) && revealStatus !== 'revealed' && (
-                 <button
-                    onClick={handleRevealTreasure}
-                    disabled={revealStatus === 'submitting' || revealStatus === 'confirming'}
-                    className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                 >
-                    {revealStatus === 'submitting' || revealStatus === 'confirming' ? 'Revealing...' : 'Reveal Treasure Location'}
-                 </button>
-              )}
-
-              {/* Reveal Status Messages */} 
-              {(revealStatus === 'submitting' || revealStatus === 'confirming') && (
-                 <p className="text-xs text-yellow-400 animate-pulse mt-2">Submitting reveal transaction...</p>
-              )}
-              {revealStatus === 'revealed' && revealTxHash && (
-                 <div>
-                     <p className="text-xs text-green-400 mt-2">Treasure location revealed onchain!</p>
-                      <a 
-                        href={`${blockExplorerUrl}/tx/${revealTxHash}`}
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-400 hover:underline mt-1"
-                    >
-                        View Reveal Transaction
-                    </a>
-                 </div>
-              )}
-               {revealStatus === 'error' && revealError && (
-                 <p className="text-xs text-red-400 mt-2">Reveal Error: {revealError}</p>
-              )}
-          </div>
-           {/* --- End Reveal Treasure Section --- */} 
+          {switchChainError && <p className="text-xs text-red-400 mt-1">Error switching network: {switchChainError.message}</p>}
 
         </div>
       )}

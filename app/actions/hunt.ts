@@ -841,3 +841,35 @@ export async function getUserHuntHistory(userFid: number): Promise<UserHuntHisto
 }
 
 // --- End New Server Action --- 
+
+// --- Admin Actions ---
+/**
+ * [ADMIN ACTION] Deletes all hunts, moves, and locks from the database.
+ * USE WITH EXTREME CAUTION - THIS IS A DESTRUCTIVE OPERATION.
+ */
+export async function admin_deleteAllHunts(): Promise<{ success: boolean; message: string; error?: string }> {
+  console.warn("[ADMIN ACTION] Attempting to delete all hunt data...");
+  try {
+    // Delete in order to respect foreign key constraints
+    const deletedMoves = await prisma.move.deleteMany({});
+    console.log(`[ADMIN ACTION] Deleted ${deletedMoves.count} moves.`);
+
+    const deletedLocks = await prisma.huntLock.deleteMany({});
+    console.log(`[ADMIN ACTION] Deleted ${deletedLocks.count} hunt locks.`);
+
+    const deletedHunts = await prisma.hunt.deleteMany({});
+    console.log(`[ADMIN ACTION] Deleted ${deletedHunts.count} hunts.`);
+
+    // After deleting, broadcast that the list has changed (it will be empty)
+    await broadcastHuntsListUpdate();
+    
+    const successMsg = `Successfully deleted all data: ${deletedHunts.count} hunts, ${deletedMoves.count} moves, ${deletedLocks.count} locks.`;
+    console.log(`[ADMIN ACTION] ${successMsg}`);
+    return { success: true, message: successMsg };
+
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : "An unknown error occurred during deletion.";
+    console.error("[ADMIN ACTION] Error deleting all hunt data:", errorMsg);
+    return { success: false, message: "Failed to delete all hunt data.", error: errorMsg };
+  }
+} 
