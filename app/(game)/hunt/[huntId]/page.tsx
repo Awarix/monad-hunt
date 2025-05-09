@@ -300,11 +300,11 @@ export default function HuntPage() {
   const currentLock = huntDetails?.lock;
   const userFid = currentUser?.fid;
 
-  const canUserClaimTurn = 
-    isHuntActive && 
-    userFid && 
-    userFid !== lastMoveUserId && 
-    (!currentLock || new Date() > new Date(currentLock.expiresAt)); // Lock doesn't exist or is expired
+  // const canUserClaimTurn = 
+  //   isHuntActive && 
+  //   userFid && 
+  //   userFid !== lastMoveUserId && 
+  //   (!currentLock || new Date() > new Date(currentLock.expiresAt)); // Lock doesn't exist or is expired
 
   const doesUserHoldActiveLock = 
     isHuntActive && 
