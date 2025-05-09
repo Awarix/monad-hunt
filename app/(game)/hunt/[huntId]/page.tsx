@@ -24,7 +24,7 @@ import {
     HuntDetails, 
     SubmitResult,
     claimNft,
-    // revealHuntTreasure,
+    revealHuntTreasure,
     claimHuntTurn
 } from '@/app/actions/hunt';
 import { HuntState } from '@prisma/client'; 
@@ -71,7 +71,16 @@ export default function HuntPage() {
   useEffect(() => {
     console.log('[Wagmi Account Status] isConnected:', isConnected, 'Address:', connectedAddress);
   }, [isConnected, connectedAddress]);
-  // --------------------------
+
+  // --- Logging for isConnected and currentUser ---
+  useEffect(() => {
+    console.log('[Debug ClaimTurn] isConnected changed:', isConnected);
+  }, [isConnected]);
+
+  useEffect(() => {
+    console.log('[Debug ClaimTurn] currentUser changed:', currentUser ? currentUser.fid : 'null');
+  }, [currentUser]);
+  // ---------------------------------------------
 
   // --- Move Transaction Wagmi Hooks ---
   const {
@@ -152,9 +161,9 @@ export default function HuntPage() {
   // -------------------------------
 
   // --- Reveal Treasure State ---
-  // const [revealStatus, setRevealStatus] = useState<'idle' | 'submitting' | 'confirming' | 'revealed' | 'error'>('idle');
-  // const [revealError, setRevealError] = useState<string | null>(null);
-  // const [revealTxHash, setRevealTxHash] = useState<`0x${string}` | undefined>(undefined);
+  const [revealStatus, setRevealStatus] = useState<'idle' | 'submitting' | 'confirming' | 'revealed' | 'error'>('idle');
+  const [revealError, setRevealError] = useState<string | null>(null);
+  const [revealTxHash, setRevealTxHash] = useState<`0x${string}` | undefined>(undefined);
   // ---------------------------
 
 
@@ -313,31 +322,37 @@ export default function HuntPage() {
     new Date() < new Date(currentLock.expiresAt);
 
   const canAttemptMove = useMemo(() => {
-    if (!huntDetails || !currentUser || huntDetails.state !== HuntState.ACTIVE) return false;
-    // Check if there's an active lock FOR THE CURRENT USER
-    const currentLock = huntDetails.lock;
-    if (currentLock && currentLock.playerFid === currentUser.fid && new Date(currentLock.expiresAt) > new Date()) {
-      return true; // User has the lock and it's active
-    }
-    return false; // No active lock for the current user
+    const result = (() => {
+        if (!huntDetails || !currentUser || huntDetails.state !== HuntState.ACTIVE) return false;
+        const currentLock = huntDetails.lock;
+        if (currentLock && currentLock.playerFid === currentUser.fid && new Date(currentLock.expiresAt) > new Date()) {
+            return true;
+        }
+        return false;
+    })();
+    console.log('[Debug ClaimTurn] canAttemptMove recalculated:', result, { huntId: huntDetails?.id, userId: currentUser?.fid, lockPlayerFid: huntDetails?.lock?.playerFid });
+    return result;
   }, [huntDetails, currentUser]);
 
   const canClaimTurn = useMemo(() => {
-    if (!huntDetails || !currentUser || huntDetails.state !== HuntState.ACTIVE) return false;
-    if (huntDetails.lastMoveUserId === currentUser.fid) return false; // Cannot claim if they made the last move
-    
-    const currentLock = huntDetails.lock;
-    if (currentLock && currentLock.playerFid !== currentUser.fid && new Date(currentLock.expiresAt) > new Date()) {
-        return false; // Locked by someone else and lock is active
-    }
-    // Can claim if: no lock, or lock expired (for anyone), or it's our lock but expired.
-    if (currentLock && new Date(currentLock.expiresAt) <= new Date()) {
-        return true; // Lock expired, anyone eligible can claim
-    }
-    if (!currentLock) {
-        return true; // No lock, anyone eligible can claim
-    }
-    return false; // Default to false if other conditions for claiming aren't met (e.g. user has an active lock already)
+    const result = (() => {
+        if (!huntDetails || !currentUser || huntDetails.state !== HuntState.ACTIVE) return false;
+        if (huntDetails.lastMoveUserId === currentUser.fid) return false;
+        
+        const currentLock = huntDetails.lock;
+        if (currentLock && currentLock.playerFid !== currentUser.fid && new Date(currentLock.expiresAt) > new Date()) {
+            return false;
+        }
+        if (currentLock && new Date(currentLock.expiresAt) <= new Date()) {
+            return true;
+        }
+        if (!currentLock) {
+            return true;
+        }
+        return false;
+    })();
+    console.log('[Debug ClaimTurn] canClaimTurn recalculated:', result, { huntId: huntDetails?.id, userId: currentUser?.fid, lastMoveUserId: huntDetails?.lastMoveUserId, lockPlayerFid: huntDetails?.lock?.playerFid });
+    return result;
   }, [huntDetails, currentUser]);
 
   // --- Action Handlers --- 
@@ -763,7 +778,6 @@ export default function HuntPage() {
   }, []);
 
   // --- Backend Action Call: Reveal Treasure ---
-  /* // Linter: handleRevealTreasure is assigned but never used (UI is commented out)
   const handleRevealTreasure = useCallback(async () => {
       if (!huntId || !userFid) {
           setRevealError("Missing hunt ID or user FID.");
@@ -776,7 +790,7 @@ export default function HuntPage() {
       }
 
       console.log("Calling backend revealHuntTreasure action...");
-      setRevealStatus('submitting'); // Using 'submitting' for the backend call duration
+      setRevealStatus('submitting'); 
       setRevealError(null);
       setRevealTxHash(undefined);
 
@@ -786,9 +800,7 @@ export default function HuntPage() {
           if (result.success && result.transactionHash) {
               console.log("Reveal transaction submitted/confirmed:", result.transactionHash);
               setRevealTxHash(result.transactionHash as `0x${string}`);
-              setRevealStatus('revealed'); // Consider if backend waits for confirmation
-              // If backend *doesn't* wait, we'd need another useWaitForTransactionReceipt hook
-              // Assuming for now backend waits, so we go straight to 'revealed'.
+              setRevealStatus('revealed'); 
           } else {
               console.error("Backend revealHuntTreasure failed:", result.error);
               setRevealError(result.error || "Failed to reveal treasure.");
@@ -800,58 +812,7 @@ export default function HuntPage() {
           setRevealStatus('error');
       }
   }, [huntId, userFid, revealStatus]);
-  */
   // -----------------------------------------
-
-  // --- Helper to determine button text and disabled state for NFT Minting ---
-  const getNftButtonProps = () => {
-    if (!isHuntEnded || !numericOnchainHuntIdForFrontend || !connectedAddress) {
-      return { text: "NFT Minting Unavailable", disabled: true, onClick: () => {} };
-    }
-
-    if (isLoadingHasMinted) {
-      return { text: "Checking Eligibility...", disabled: true, onClick: () => {} };
-    }
-
-    if (hasMintedData === true || claimNftStatus === 'already_minted') {
-      return { text: "NFT Already Minted", disabled: true, onClick: () => {}, hideButton: true }; // Hide button, show text instead
-    }
-
-    switch (claimNftStatus) {
-      case 'idle':
-      case 'eligible': // eligible state might be brief, can be combined with idle for button
-        return {
-          text: "Prepare NFT Details",
-          disabled: isSwitchingChain || chainId !== monadTestnet.id,
-          onClick: handleClaimNft,
-        };
-      case 'checking_eligibility': // This is covered by isLoadingHasMinted generally
-        return { text: "Checking Eligibility...", disabled: true, onClick: () => {} };
-      case 'fetching_uri':
-        return { text: "Fetching NFT Data...", disabled: true, onClick: () => {} };
-      case 'ready_to_mint':
-        return {
-          text: "Mint NFT Now",
-          disabled: isSwitchingChain || chainId !== monadTestnet.id,
-          onClick: handleMintNft,
-          className: "bg-green-600 hover:bg-green-700 focus:ring-green-500",
-        };
-      case 'submitting_mint':
-        return { text: "Confirm in Wallet...", disabled: true, onClick: () => {}, className: "bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500" };
-      case 'confirming_mint':
-        return { text: "Confirming Mint...", disabled: true, onClick: () => {}, className: "bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500" };
-      case 'minted':
-        return { text: "Minted Successfully!", disabled: true, onClick: () => {}, hideButton: true, className: "bg-green-600" }; // Hide button, show text instead
-      case 'not_eligible':
-         return { text: "Not Eligible to Mint", disabled: true, onClick: () => {}, hideButton: true };
-      case 'error':
-        return { text: "Error Preparing NFT", disabled: true, onClick: () => {} }; // Error text will be shown separately
-      default:
-        return { text: "NFT Action", disabled: true, onClick: () => {} };
-    }
-  };
-
-  const nftButtonProps = getNftButtonProps();
 
   // --- Loading and Error States --- 
   if (!isFarcasterLoaded) {
@@ -1025,85 +986,173 @@ export default function HuntPage() {
       </div>
 
       {/* --- NFT Claim Section --- */} 
-      {isHuntEnded && numericOnchainHuntIdForFrontend && connectedAddress && (
-        <div className="mt-6 p-4 border border-purple-700 rounded-lg shadow-lg bg-purple-900/30">
-          <h3 className="text-xl font-semibold mb-3 text-purple-300" style={accentGlowStyle}>Mint Your Hunt Map NFT</h3>
-
-          {/* Display NFT Image if tokenUri is available and relevant status */}
-          {tokenUri && ['ready_to_mint', 'submitting_mint', 'confirming_mint', 'minted'].includes(claimNftStatus) && (
+      {isHuntEnded && (
+        <div className="w-full max-w-md mx-auto mt-6 mb-4 p-4 bg-gray-800 rounded-lg shadow-lg text-center">
+          <h3 className="text-lg font-semibold mb-3 text-cyan-300">Hunt Complete!</h3>
+          
+          {/* Display NFT Image if tokenUri is available - integrated from new logic */} 
+          {tokenUri && ('ready_to_mint' === claimNftStatus || 'submitting_mint' === claimNftStatus || 'confirming_mint' === claimNftStatus || 'minted' === claimNftStatus) && (
             <div className="my-4 p-3 bg-black/30 rounded-md border border-purple-600/50">
               <Image 
                 src={tokenUri} 
                 alt={claimNftStatus === 'minted' ? "Minted Hunt Map NFT" : "Hunt Map NFT Preview"} 
-                width={400} // Example width, adjust as needed based on max-w-sm or desired display
-                height={210} // Example height, (400 * 500/800 for 800x500 OG aspect ratio) adjust as needed
+                width={400} 
+                height={210} 
                 className={`w-full max-w-sm mx-auto rounded-md border-2 ${claimNftStatus === 'minted' ? 'border-green-500' : 'border-purple-500'} shadow-xl mb-3`}
-                priority // Prioritize loading as it's important when visible
+                priority
               />
             </div>
           )}
 
-          {/* Loading/Error/Status Messages */} 
-          {isLoadingHasMinted && <p className="text-sm text-yellow-400 italic">Checking if youve already minted...</p>}
-          {hasMintedError && <p className="text-sm text-red-500">Error checking mint status: {hasMintedError.message}</p>}
+          {/* Eligibility Loading */} 
+          {claimNftStatus === 'checking_eligibility' && <p className="text-sm text-yellow-400 animate-pulse">Checking NFT eligibility...</p>}
+
+          {/* Not Eligible */} 
+          {claimNftStatus === 'not_eligible' && <p className="text-sm text-gray-400">You did not participate in this hunt, or are otherwise not eligible to claim an NFT.</p>}
           
-          {/* Handle already minted case directly without relying on claimNftStatus for this initial display */}
+          {/* Already Minted (checks hasMintedData directly now) */} 
           {hasMintedData === true && (
-              <p className="text-sm text-green-400">You have already minted this NFT!</p>
+            <div>
+                <p className="text-sm text-green-400">You have already minted the NFT for this hunt!</p>
+            </div>
           )}
 
-          {claimNftStatus === 'not_eligible' && (
-              <p className="text-sm text-orange-400">You are not eligible to mint this NFT.</p>
+          {/* Eligible - Show Claim Button (only if not already minted) */} 
+          {claimNftStatus === 'eligible' && hasMintedData === false && (
+              <button 
+                  onClick={handleClaimNft}
+                  disabled={isSwitchingChain || chainId !== monadTestnet.id || !isConnected}
+                  className="px-6 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                 Prepare NFT Details
+              </button>
           )}
 
-          {/* Single Button for NFT Actions */} 
-          {hasMintedData === false && !nftButtonProps.hideButton && (
-            <button
-              onClick={nftButtonProps.onClick}
-              disabled={nftButtonProps.disabled || isSwitchingChain || chainId !== monadTestnet.id}
-              className={`w-full mt-2 px-4 py-2 font-semibold text-white rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150 ease-in-out shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-opacity-75 ${nftButtonProps.className || 'bg-purple-600 hover:bg-purple-700 focus:ring-purple-500'}`}
-            >
-              {nftButtonProps.text}
-            </button>
+          {/* Fetching URI state */} 
+          {claimNftStatus === 'fetching_uri' && <p className="text-sm text-yellow-400 animate-pulse">Preparing NFT details...</p>}
+
+          {/* Ready to Mint - Show Mint Button (only if not already minted and URI is ready) */} 
+          {claimNftStatus === 'ready_to_mint' && tokenUri && hasMintedData === false && (
+              <button 
+                  onClick={handleMintNft}
+                  disabled={isSwitchingChain || chainId !== monadTestnet.id || !isConnected}
+                  className="px-6 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white font-semibold transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                  Mint Your NFT Map!
+              </button>
           )}
 
-          {/* Post-Mint Success Message & Tx Link */} 
-          {claimNftStatus === 'minted' && (
-              <div className="mt-2">
-                  <p className="text-lg font-semibold text-green-400 mb-1">NFT Minted Successfully!</p>
-                  {mintReceipt?.transactionHash && (
-                      <Link href={`${blockExplorerUrl}tx/${mintReceipt.transactionHash}`} target="_blank" rel="noopener noreferrer" className="text-sm text-cyan-400 hover:underline">
-                          View Transaction
-                      </Link>
-                  )}
-              </div>
+          {/* Minting Transaction Status */} 
+          {(claimNftStatus === 'submitting_mint' || claimNftStatus === 'confirming_mint') && (
+             <div className="mt-2">
+                <p className="text-sm text-yellow-400 animate-pulse">
+                    {claimNftStatus === 'submitting_mint' ? 'Waiting for wallet approval...' : 'Confirming mint transaction onchain...'}
+                </p>
+                {mintSubmitTxHash && (
+                    <a 
+                        href={`${blockExplorerUrl}tx/${mintSubmitTxHash}`}
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-400 hover:underline mt-1"
+                    >
+                        View Transaction
+                    </a>
+                )}
+             </div>
+          )}
+
+          {/* Minted Successfully */} 
+          {claimNftStatus === 'minted' && mintReceipt?.transactionHash && (
+            <div className="mt-3">
+                <p className="text-sm text-green-400">NFT minted successfully!</p>
+                <a 
+                    href={`${blockExplorerUrl}tx/${mintReceipt.transactionHash}`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-400 hover:underline mt-1"
+                >
+                    View Mint Transaction
+                </a>
+            </div>
+          )}
+
+          {/* Error Display */} 
+          {claimNftStatus === 'error' && claimNftError && (
+            <p className="text-sm text-red-400 mt-2">Error: {claimNftError}</p>
           )}
           
-          {/* General Status/Error Display for ongoing processes */} 
-          {(claimNftStatus === 'submitting_mint' || claimNftStatus === 'confirming_mint') && (
-              <p className="mt-2 text-sm text-yellow-400 italic">
-                  {claimNftStatus === 'submitting_mint' ? 'Please confirm the mint transaction in your wallet...' : 'Waiting for mint confirmation...'}
-                  {mintSubmitTxHash && <span className="block text-xs">(Tx: {shortenAddress(mintSubmitTxHash)})</span>}
-              </p>
-          )}
-          {claimNftError && <p className="mt-2 text-sm text-red-500">Error: {claimNftError}</p>}
-          {(isSwitchingChain || (chainId !== monadTestnet.id && isConnected && isHuntEnded)) && (
-              <p className="mt-2 text-sm text-orange-500">
-                  Please switch to Monad Testnet to mint your NFT.
-                  <button 
-                      onClick={() => switchChain({ chainId: monadTestnet.id })}
-                      className="ml-2 px-2 py-1 text-xs bg-orange-600 hover:bg-orange-700 rounded-md text-white"
-                      disabled={isSwitchingChain}
-                  >
-                      {isSwitchingChain ? 'Switching...' : 'Switch Network'}
-                  </button>
-              </p>
+          {/* Network Switch Prompt if needed during NFT claim/mint process */} 
+          {(isHuntEnded && (claimNftStatus === 'eligible' || claimNftStatus === 'ready_to_mint')) && isConnected && chainId !== monadTestnet.id && (
+             <p className="mt-2 text-sm text-orange-500">
+                 Please switch to Monad Testnet to mint your NFT.
+                 <button 
+                     onClick={() => switchChain({ chainId: monadTestnet.id })}
+                     className="ml-2 px-2 py-1 text-xs bg-orange-600 hover:bg-orange-700 rounded-md text-white"
+                     disabled={isSwitchingChain}
+                 >
+                     {isSwitchingChain ? 'Switching...' : 'Switch Network'}
+                 </button>
+             </p>
           )}
           {switchChainError && <p className="text-xs text-red-400 mt-1">Error switching network: {switchChainError.message}</p>}
 
+          {/* --- Reveal Treasure Section (within Hunt Ended block) --- */} 
+          <div className="mt-6 border-t border-gray-700 pt-4">
+              {/* Show reveal button if user participated/created AND treasure not yet revealed AND hunt is ended */} 
+              {isHuntEnded && 
+               (huntDetails?.moves.some(m => m.userId === userFid)) && 
+               revealStatus !== 'revealed' && 
+               huntDetails?.state !== HuntState.PENDING_CREATION && 
+               huntDetails?.state !== HuntState.FAILED_CREATION && (
+                 <button
+                    onClick={handleRevealTreasure}
+                    disabled={revealStatus === 'submitting' || revealStatus === 'confirming' || !isConnected || (isConnected && chainId !== monadTestnet.id) }
+                    className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                 >
+                    {revealStatus === 'submitting' || revealStatus === 'confirming' ? 'Revealing...' : 'Reveal Treasure Location'}
+                 </button>
+              )}
+
+              {/* Reveal Status Messages */} 
+              {(revealStatus === 'submitting' || revealStatus === 'confirming') && (
+                 <p className="text-xs text-yellow-400 animate-pulse mt-2">Submitting reveal transaction...</p>
+              )}
+              {revealStatus === 'revealed' && revealTxHash && (
+                 <div>
+                     <p className="text-xs text-green-400 mt-2">Treasure location revealed onchain!</p>
+                      <a 
+                        href={`${blockExplorerUrl}tx/${revealTxHash}`}
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-400 hover:underline mt-1"
+                    >
+                        View Reveal Transaction
+                    </a>
+                 </div>
+              )}
+               {revealStatus === 'error' && revealError && ( // Corrected to use revealError for reveal issues
+                 <p className="text-xs text-red-400 mt-2">Reveal Error: {revealError}</p>
+              )}
+              {/* Network Switch for Reveal if needed */} 
+              {isHuntEnded && (revealStatus === 'idle' || revealStatus === 'error') && isConnected && chainId !== monadTestnet.id && 
+               (huntDetails?.moves.some(m => m.userId === userFid)) && 
+                revealStatus !== 'idle' && (
+                 <p className="mt-2 text-sm text-orange-500">
+                     Please switch to Monad Testnet to reveal treasure.
+                     <button 
+                         onClick={() => switchChain({ chainId: monadTestnet.id })}
+                         className="ml-2 px-2 py-1 text-xs bg-orange-600 hover:bg-orange-700 rounded-md text-white"
+                         disabled={isSwitchingChain}
+                     >
+                         {isSwitchingChain ? 'Switching...' : 'Switch Network'}
+                     </button>
+                 </p>
+              )}
+          </div>
+           {/* --- End Reveal Treasure Section --- */} 
         </div>
       )}
-      {/* --- End NFT Claim Section --- */}
+      {/* --- End NFT Claim Section --- */} 
 
       {isHuntActive && (
           <div className="mt-6 flex flex-col items-center relative z-51"> 
@@ -1113,6 +1162,7 @@ export default function HuntPage() {
                       disabled={isClaimingTurn || !isConnected || !currentUser}
                       className={actionButtonStyle + ` bg-green-600 hover:bg-green-700 focus:ring-green-400`}
                   >
+                      {/* {console.log('[Debug ClaimTurn] Claim Button Rendered. Disabled Status:', { isClaimingTurn, notIsConnected: !isConnected, notCurrentUser: !currentUser, combined: isClaimingTurn || !isConnected || !currentUser })} */}
                       {isClaimingTurn ? 'Claiming...' : 'Claim Turn'}
                   </button>
               )}
