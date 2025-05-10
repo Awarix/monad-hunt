@@ -237,8 +237,8 @@ export default function HuntsListPage() {
             return (
               <div key={hunt.id} className={cardBaseStyle}>
                 <div className="flex-grow">
-                  <h2 className="text-xl font-bold text-[var(--theme-text-primary)] uppercase truncate">
-                    {hunt.name || `Hunt ${hunt.id.substring(0,6)}...`}
+                  <h2 className="text-xl font-bold text-[var(--theme-text-primary)] text-wrap truncate">
+                    Hunt by <span className="text-yellow-600 font-semibold">{hunt.name || `Hunt ${hunt.id.substring(0,6)}...`}</span>
                   </h2>
                   <p className={`text-sm mb-1 font-semibold`}>
                     Treasure: <span className={`${rarityStyle.textClass}`}>{hunt.treasureType}</span>

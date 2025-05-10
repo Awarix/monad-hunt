@@ -111,7 +111,7 @@ export async function createHunt(creatorFid: number, creatorDisplayName: string)
 
     const newHuntDBRecord = await prisma.hunt.create({
       data: {
-        name: `Hunt created by ${creatorDisplayName}`,
+        name: `${creatorDisplayName}`,
         treasureType: treasureTypePrismaEnum,
         treasurePositionX: treasurePosition.x,
         treasurePositionY: treasurePosition.y,
