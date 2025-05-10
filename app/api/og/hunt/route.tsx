@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
           justifyContent: 'center',
           backgroundColor: themePageBg,
           fontFamily: fontFamily,
-          padding: '20px', // Some padding for the page itself
+          padding: '10px', // Reduced padding for smaller screen
         }}
       >
         <div // Main content card
@@ -98,30 +98,32 @@ export async function GET(req: NextRequest) {
             border: `${outerBorderWidth}px solid ${themeBorderColor}`,
             borderRadius: '16px',
             padding: `${cardPadding}px`,
-            width: 'auto', // Adjust as needed, maybe fixed width
-            minWidth: '700px', // Ensure enough space for grid and info
-            boxShadow: `8px 8px 0px ${themeBorderColor}` // Comic-style shadow
+            width: 'calc(100% - 20px)', // Use most of the available width
+            maxWidth: '400px', // Max width for the card on small OG image
+            boxShadow: `6px 6px 0px ${themeBorderColor}` // Slightly reduced shadow for mobile
           }}
         >
           {/* Header */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px', color: themeTextPrimary }}>
-            <h1 style={{ fontSize: '32px', fontWeight: 'bold', margin: '0 0 5px 0', letterSpacing: '-0.025em' }}>Treasure Hunt Map</h1>
-            <p style={{ fontSize: '16px', color: themeTextSecondary, margin: 0 }}>Hunt ID: {huntId}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '15px', color: themeTextPrimary }}>
+            <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: '0 0 5px 0', letterSpacing: '-0.025em', textAlign: 'center' }}>Treasure Map</h1>
+            <p style={{ fontSize: '14px', color: themeTextSecondary, margin: 0 }}>ID: {huntId}</p>
           </div>
           
-          <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            {/* Grid Area */}
+          {/* Container for Grid and Info Panel - now vertical */}
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%', alignItems: 'center' }}>
+            {/* Grid Area (adjust width to fit card) */}
             <div 
                 style={{
                     display: 'grid',
                     gridTemplateColumns: `repeat(${GRID_SIZE}, ${cellSize}px)`,
                     gridTemplateRows: `repeat(${GRID_SIZE}, ${cellSize}px)`,
-                    gap: `${gridBorderWidth}px`, // This creates the grid lines effectively
+                    gap: `${gridBorderWidth}px`,
                     border: `${gridBorderWidth}px solid ${themeGridBorderColor}`,
-                    backgroundColor: themeGridBorderColor, // Background for the gap, makes lines look solid
-                    padding: `${gridBorderWidth}px`, // Padding to make outer border of grid distinct
-                    width: `${gridDimension}px`,
-                    height: `${gridDimension}px`,
+                    backgroundColor: themeGridBorderColor,
+                    padding: `${gridBorderWidth}px`,
+                    // width: `${gridDimension}px`, // Grid dimension will be constrained by parent
+                    // height: `${gridDimension}px`,
+                    marginBottom: '20px' // Space before info panel
                 }}
             >
                 {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, index) => {
@@ -129,8 +131,7 @@ export async function GET(req: NextRequest) {
                     const y = Math.floor(index / GRID_SIZE);
                     const isPlayer = path.length > 0 && path[path.length - 1].x === x && path[path.length - 1].y === y;
                     const isPath = path.some(p => p.x === x && p.y === y);
-                    // TODO: Add isTreasureLocation if coordinates are passed
-
+                    
                     let cellBgColor = themeGridCellBg;
                     if (isPath) cellBgColor = themeGridPathBg;
                     if (isPlayer) cellBgColor = themeGridPlayerBg;
@@ -145,27 +146,25 @@ export async function GET(req: NextRequest) {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                // border: `1px solid ${themeGridBorderColor}` // Individual cell border if gap isn't used
                             }}
                         >
-                           {/* Can add icons here for player/treasure if needed instead of just bg color */}
                         </div>
                     );
                 })}
             </div>
 
-            {/* Info Area */}
-            <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '24px', color: themeTextPrimary, flexShrink: 0, width: '220px' }}>
-                <h2 style={{ fontSize: '22px', fontWeight: 'bold', margin: '0 0 10px 0', borderBottom: `2px solid ${themeBorderColor}`, paddingBottom: '5px' }}>Hunt Details</h2>
-                <p style={{ fontSize: '16px', margin: '0 0 5px 0' }}>Outcome: <span style={{ color: outcomeDisplayColor, fontWeight: 'bold' }}>{outcome}</span></p>
-                <p style={{ fontSize: '16px', margin: '0 0 15px 0' }}>Treasure: <span style={{ color: treasureDisplayColor, fontWeight: 'bold' }}>{treasureType}</span></p>
+            {/* Info Area (full width, below grid) */}
+            <div style={{ display: 'flex', flexDirection: 'column', color: themeTextPrimary, width: '100%' }}>
+                <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 8px 0', borderBottom: `2px solid ${themeBorderColor}`, paddingBottom: '4px' }}>Details</h2>
+                <p style={{ fontSize: '15px', margin: '0 0 5px 0' }}>Outcome: <span style={{ color: outcomeDisplayColor, fontWeight: 'bold' }}>{outcome}</span></p>
+                <p style={{ fontSize: '15px', margin: '0 0 12px 0' }}>Treasure: <span style={{ color: treasureDisplayColor, fontWeight: 'bold' }}>{treasureType}</span></p>
                 
-                <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 8px 0', borderBottom: `2px solid ${themeBorderColor}`, paddingBottom: '5px' }}>Participants</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', maxHeight: '180px', overflowY: 'auto' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 6px 0', borderBottom: `2px solid ${themeBorderColor}`, paddingBottom: '3px' }}>Participants</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', maxHeight: '150px', overflowY: 'auto' }}>
                     {playerFids.length > 0 ? (
-                         playerFids.map((fid) => <p key={fid} style={{ fontSize: '14px', margin: '2px 0', color: themeTextSecondary }}>FID: {fid}</p>)
+                         playerFids.map((fid) => <p key={fid} style={{ fontSize: '13px', margin: '2px 0', color: themeTextSecondary }}>FID: {fid}</p>)
                     ) : (
-                         <p style={{ fontSize: '14px', color: themeTextSecondary }}>No participants recorded.</p>
+                         <p style={{ fontSize: '13px', color: themeTextSecondary }}>No participants.</p>
                     )}
                 </div>
             </div>
@@ -174,22 +173,10 @@ export async function GET(req: NextRequest) {
       </div>
     ),
     {
-      width: 800,
-      height: 450, // Adjusted height slightly
+      width: 425,
+      height: 900,
       fonts: [
-        // Optional: Load custom Geist font if needed and available as data
-        // {
-        //   name: 'Geist',
-        //   data: Buffer.from(await fetch(new URL('@/assets/fonts/Geist-Regular.otf', import.meta.url)).then(res => res.arrayBuffer())),
-        //   weight: 400,
-        //   style: 'normal',
-        // },
-        // {
-        //   name: 'Geist Mono',
-        //   data: Buffer.from(await fetch(new URL('@/assets/fonts/GeistMono-Regular.otf', import.meta.url)).then(res => res.arrayBuffer())),
-        //   weight: 400,
-        //   style: 'normal',
-        // },
+        // Optional: Load custom Geist font
       ],
     },
   );

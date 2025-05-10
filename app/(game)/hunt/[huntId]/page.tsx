@@ -264,7 +264,7 @@ export default function HuntPage() {
                         (newLock).expiresAt = new Date(newLock.expiresAt);
                     }
                     setHuntDetails(prev => {
-                        if (!prev) return null; // Or handle appropriately if prev can be null initially
+                      if (!prev) return { lock: newLock } as HuntDetails;
                         return { ...prev, lock: newLock };
                     });
                 } else {

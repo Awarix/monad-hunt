@@ -123,9 +123,9 @@ export default function HistoryPage() {
               <div key={hunt.id} className={cardBaseStyle}>
                 <div className="flex-grow pr-4">
                    <Link href={`/hunt/${hunt.id}`} className="hover:underline">
-                       <h2 className="text-xl font-bold text-[var(--theme-text-primary)] mb-2 truncate hover:text-teal-700">
-                           {hunt.name || `Hunt ${hunt.id.substring(0, 6)}...`}
-                       </h2>
+                    <h2 className="text-xl font-bold text-[var(--theme-text-primary)] text-wrap truncate">
+                      Hunt by <span className="text-yellow-600 font-semibold">{hunt.name || `Hunt ${hunt.id.substring(0,6)}...`}</span>
+                    </h2>
                    </Link>
                    <div className="space-y-1 text-sm font-semibold">
                         <p className="text-[var(--theme-text-primary)]">
