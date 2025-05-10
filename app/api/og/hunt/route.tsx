@@ -35,29 +35,48 @@ export async function GET(req: NextRequest) {
   // --- Get Parameters ---
   const huntId = searchParams.get('huntId') || 'Unknown Hunt';
   const outcome = searchParams.get('outcome') || 'UNKNOWN'; // WON, LOST
-  const treasureType = searchParams.get('treasure') || 'UNKNOWN'; // COMMON, RARE, EPIC
+  const treasureType = searchParams.get('treasureType') || 'UNKNOWN'; // COMMON, RARE, EPIC - Renamed from 'treasure' for clarity
   const pathStr = searchParams.get('path');
-  const playersStr = searchParams.get('players');
+  const playerFidsStr = searchParams.get('players'); // Renamed from 'playersStr' for consistency
+  // const treasureX = searchParams.get('treasureX'); // For future: to mark treasure location
+  // const treasureY = searchParams.get('treasureY');
 
   const path = parsePath(pathStr);
-  const playerFids = parsePlayers(playersStr);
+  const playerFids = parsePlayers(playerFidsStr);
 
-  // --- Styling & Content ---
-  const outcomeColor = outcome === 'WON' ? 'text-green-400' : 'text-red-400';
-  const treasureColor = 
-      treasureType === 'EPIC' ? 'text-purple-400' : 
-      treasureType === 'RARE' ? 'text-blue-400' : 'text-gray-400';
+  // --- Comic Book Theme Colors ---
+  const themePageBg = '#FDE047'; // Vivid Yellow (Tailwind yellow-400)
+  const themeCardBg = '#FFFFFF';       // White
+  const themeBorderColor = '#000000';   // Black
+  const themeTextPrimary = '#000000';   // Black
+  const themeTextSecondary = '#374151'; // Cool Gray 700 (for slightly less prominent text)
+  const themeGridBorderColor = '#000000'; // Black for grid lines
+  const themeGridCellBg = '#F3F4F6';    // Cool Gray 100 (very light gray for empty cells)
+  const themeGridPathBg = '#FDBA74';    // Orange 300 (for path cells)
+  const themeGridPlayerBg = '#EF4444';  // Red 500 (for player marker, strong contrast)
+  const themeAccentWin = '#10B981';     // Emerald 500 (for WIN text)
+  const themeAccentLose = '#F43F5E';    // Rose 500 (for LOSE text)
+  const themeAccentTreasureEpic = '#8B5CF6'; // Violet 500 (EPIC)
+  const themeAccentTreasureRare = '#3B82F6'; // Blue 500 (RARE)
+  const themeAccentTreasureCommon = '#6B7280'; // Gray 500 (COMMON)
 
-  const cellSize = 40; // Size of each logical grid cell for positioning
-  const gridWidth = GRID_SIZE * cellSize;
-  const gridHeight = GRID_SIZE * cellSize;
-  const padding = 40;
+  const outcomeDisplayColor = outcome === 'WON' ? themeAccentWin : themeAccentLose;
+  const treasureDisplayColor = 
+      treasureType === 'EPIC' ? themeAccentTreasureEpic :
+      treasureType === 'RARE' ? themeAccentTreasureRare : themeAccentTreasureCommon;
 
-  // TODO: Refine OG Image styles (fonts, layout, path visualization, responsiveness?)
+  const cellSize = 32; // Adjusted cell size for a 10x10 grid within typical OG image dimensions
+  const gridBorderWidth = 2;
+  const outerBorderWidth = 4;
+  const gridDimension = GRID_SIZE * cellSize + (GRID_SIZE + 1) * gridBorderWidth; // accounts for cell borders
+  const cardPadding = 24;
+
+  // Font: Stick with Geist Mono for now, ensure it's available.
+  const fontFamily = '"Geist Mono", monospace';
 
   return new ImageResponse(
     (
-      <div
+      <div // Overall container (page background)
         style={{
           height: '100%',
           width: '100%',
@@ -65,113 +84,113 @@ export async function GET(req: NextRequest) {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: '#111',
-          color: '#eee',
-          fontFamily: '"Geist Mono", monospace', // Ensure Geist font is loaded or fallback
-          padding: `${padding}px`,
+          backgroundColor: themePageBg,
+          fontFamily: fontFamily,
+          padding: '20px', // Some padding for the page itself
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px' }}>
-          <h1 style={{ fontSize: '36px', fontWeight: 700, marginBottom: '5px' }}>Treasure Hunt Map</h1>
-          <p style={{ fontSize: '18px', color: '#aaa' }}>Hunt ID: {huntId}</p>
-        </div>
-        
-        <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            {/* Grid Area Container */}
+        <div // Main content card
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            backgroundColor: themeCardBg,
+            border: `${outerBorderWidth}px solid ${themeBorderColor}`,
+            borderRadius: '16px',
+            padding: `${cardPadding}px`,
+            width: 'auto', // Adjust as needed, maybe fixed width
+            minWidth: '700px', // Ensure enough space for grid and info
+            boxShadow: `8px 8px 0px ${themeBorderColor}` // Comic-style shadow
+          }}
+        >
+          {/* Header */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px', color: themeTextPrimary }}>
+            <h1 style={{ fontSize: '32px', fontWeight: 'bold', margin: '0 0 5px 0', letterSpacing: '-0.025em' }}>Treasure Hunt Map</h1>
+            <p style={{ fontSize: '16px', color: themeTextSecondary, margin: 0 }}>Hunt ID: {huntId}</p>
+          </div>
+          
+          <div style={{ display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            {/* Grid Area */}
             <div 
                 style={{
-                    display: 'flex',
-                    width: `${gridWidth}px`,
-                    height: `${gridHeight}px`,
-                    border: '1px solid #444',
-                    position: 'relative',
-                    backgroundColor: '#1a1a1a'
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${GRID_SIZE}, ${cellSize}px)`,
+                    gridTemplateRows: `repeat(${GRID_SIZE}, ${cellSize}px)`,
+                    gap: `${gridBorderWidth}px`, // This creates the grid lines effectively
+                    border: `${gridBorderWidth}px solid ${themeGridBorderColor}`,
+                    backgroundColor: themeGridBorderColor, // Background for the gap, makes lines look solid
+                    padding: `${gridBorderWidth}px`, // Padding to make outer border of grid distinct
+                    width: `${gridDimension}px`,
+                    height: `${gridDimension}px`,
                 }}
             >
-                {/* Grid Lines (drawn manually with absolute divs) */}
-                {/* Vertical Lines */}
-                {Array.from({ length: GRID_SIZE - 1 }).map((_, i) => (
-                    <div key={`vline-${i}`} style={{
-                        position: 'absolute',
-                        left: `${(i + 1) * cellSize}px`,
-                        top: 0,
-                        width: '1px',
-                        height: '100%',
-                        backgroundColor: '#333',
-                    }} />
-                ))}
-                {/* Horizontal Lines */}
-                {Array.from({ length: GRID_SIZE - 1 }).map((_, i) => (
-                    <div key={`hline-${i}`} style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: `${(i + 1) * cellSize}px`,
-                        width: '100%',
-                        height: '1px',
-                        backgroundColor: '#333',
-                    }} />
-                ))}
-                
-                {/* Render Path (using absolute positioning within the container) */}
-                {path.map((pos, index) => {
-                    const isStart = index === 0;
-                    const isEnd = index === path.length - 1;
-                    const nextPos = path[index + 1];
+                {Array.from({ length: GRID_SIZE * GRID_SIZE }).map((_, index) => {
+                    const x = index % GRID_SIZE;
+                    const y = Math.floor(index / GRID_SIZE);
+                    const isPlayer = path.length > 0 && path[path.length - 1].x === x && path[path.length - 1].y === y;
+                    const isPath = path.some(p => p.x === x && p.y === y);
+                    // TODO: Add isTreasureLocation if coordinates are passed
+
+                    let cellBgColor = themeGridCellBg;
+                    if (isPath) cellBgColor = themeGridPathBg;
+                    if (isPlayer) cellBgColor = themeGridPlayerBg;
 
                     return (
-                        <div key={`point-${index}`} style={{ position: 'absolute', left: `${pos.x * cellSize}px`, top: `${pos.y * cellSize}px`, width: `${cellSize}px`, height: `${cellSize}px`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {/* Dot for the position */}
-                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: isStart ? '#4ade80' : isEnd ? (outcome === 'WON' ? '#facc15' : '#f87171') : '#60a5fa' }}></div>
-                            
-                            {/* Line to next position */}
-                            {nextPos && (
-                                <svg style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', overflow: 'visible' }} >
-                                     <line 
-                                        x1={cellSize / 2} 
-                                        y1={cellSize / 2} 
-                                        x2={(nextPos.x - pos.x + 0.5) * cellSize} 
-                                        y2={(nextPos.y - pos.y + 0.5) * cellSize} 
-                                        stroke="#60a5fa" 
-                                        strokeWidth="2"
-                                    />
-                                </svg>
-                            )}
-                             {/* Display move number (optional) */}
-                             {/* <span style={{ position: 'absolute', top: -15, fontSize: '10px', color: '#aaa' }}>{index}</span> */}
+                        <div 
+                            key={`cell-${x}-${y}`} 
+                            style={{
+                                width: `${cellSize}px`,
+                                height: `${cellSize}px`,
+                                backgroundColor: cellBgColor,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                // border: `1px solid ${themeGridBorderColor}` // Individual cell border if gap isn't used
+                            }}
+                        >
+                           {/* Can add icons here for player/treasure if needed instead of just bg color */}
                         </div>
                     );
                 })}
             </div>
 
-             {/* Info Area */}
-            <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '30px', maxWidth: '200px' }}>
-                <h2 style={{ fontSize: '24px', marginBottom: '10px' }}>Hunt Details</h2>
-                <p style={{ fontSize: '18px', marginBottom: '5px' }}>Outcome: <span className={outcomeColor}>{outcome}</span></p>
-                <p style={{ fontSize: '18px', marginBottom: '15px' }}>Treasure: <span className={treasureColor}>{treasureType}</span></p>
+            {/* Info Area */}
+            <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '24px', color: themeTextPrimary, flexShrink: 0, width: '220px' }}>
+                <h2 style={{ fontSize: '22px', fontWeight: 'bold', margin: '0 0 10px 0', borderBottom: `2px solid ${themeBorderColor}`, paddingBottom: '5px' }}>Hunt Details</h2>
+                <p style={{ fontSize: '16px', margin: '0 0 5px 0' }}>Outcome: <span style={{ color: outcomeDisplayColor, fontWeight: 'bold' }}>{outcome}</span></p>
+                <p style={{ fontSize: '16px', margin: '0 0 15px 0' }}>Treasure: <span style={{ color: treasureDisplayColor, fontWeight: 'bold' }}>{treasureType}</span></p>
                 
-                <h3 style={{ fontSize: '20px', marginBottom: '8px' }}>Participants (FID)</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', maxHeight: '300px', overflowY: 'auto' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 8px 0', borderBottom: `2px solid ${themeBorderColor}`, paddingBottom: '5px' }}>Participants</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', maxHeight: '180px', overflowY: 'auto' }}>
                     {playerFids.length > 0 ? (
-                         playerFids.map((fid) => <p key={fid} style={{ fontSize: '14px', margin: '2px 0' }}>{fid}</p>)
+                         playerFids.map((fid) => <p key={fid} style={{ fontSize: '14px', margin: '2px 0', color: themeTextSecondary }}>FID: {fid}</p>)
                     ) : (
-                         <p style={{ fontSize: '14px', color: '#888' }}>No participants found.</p>
+                         <p style={{ fontSize: '14px', color: themeTextSecondary }}>No participants recorded.</p>
                     )}
                 </div>
             </div>
+          </div>
         </div>
       </div>
     ),
     {
       width: 800,
-      height: 500,
-      // TODO: Add custom fonts if needed
-      // fonts: [
-      //   {
-      //     name: 'Geist',
-      //     data: fontData,
-      //     style: 'normal',
-      //   },
-      // ],
+      height: 450, // Adjusted height slightly
+      fonts: [
+        // Optional: Load custom Geist font if needed and available as data
+        // {
+        //   name: 'Geist',
+        //   data: Buffer.from(await fetch(new URL('@/assets/fonts/Geist-Regular.otf', import.meta.url)).then(res => res.arrayBuffer())),
+        //   weight: 400,
+        //   style: 'normal',
+        // },
+        // {
+        //   name: 'Geist Mono',
+        //   data: Buffer.from(await fetch(new URL('@/assets/fonts/GeistMono-Regular.otf', import.meta.url)).then(res => res.arrayBuffer())),
+        //   weight: 400,
+        //   style: 'normal',
+        // },
+      ],
     },
   );
 } 
