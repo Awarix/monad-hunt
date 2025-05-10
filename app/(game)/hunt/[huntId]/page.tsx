@@ -260,10 +260,11 @@ export default function HuntPage() {
                     console.log("SSE: Applying lock update");
                     const newLock = payload.lock;
                     if (newLock && typeof newLock.expiresAt === 'string') {
-                        newLock.expiresAt = new Date(newLock.expiresAt);
+                        // Ensure expiresAt is a Date object
+                        (newLock as any).expiresAt = new Date(newLock.expiresAt);
                     }
                     setHuntDetails(prev => {
-                        if (!prev) return { lock: newLock } as HuntDetails;
+                        if (!prev) return null; // Or handle appropriately if prev can be null initially
                         return { ...prev, lock: newLock };
                     });
                 } else {
