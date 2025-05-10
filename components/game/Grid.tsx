@@ -37,8 +37,8 @@ const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable
       }
 
       if (isInteractable) {
-        // Always show ring for interactable cells, keep hover for background change
-        cellClasses += " cursor-pointer ring-2 ring-yellow-500 ring-inset hover:bg-yellow-300"; 
+        // Apply a distinct background and ring for interactable cells, with a hover effect for desktop
+        cellClasses += " cursor-pointer bg-amber-200 ring-2 ring-[var(--theme-border-color)] hover:bg-amber-300"; 
       } else if (tappable && !isPlayer) { 
          cellClasses += " opacity-50"; // Adjacent, not interactable (e.g. part of path already)
       }
@@ -93,7 +93,7 @@ const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable
   }
 
   return (
-    <div className="relative w-full max-w-3xl aspect-square shadow-xl bg-[var(--theme-card-bg)] rounded-2xl border-4 border-[var(--theme-border-color)] p-2 md:p-3">
+    <div className="relative w-screen max-w-3xl aspect-square shadow-xl bg-[var(--theme-card-bg)] rounded-2xl border-4 border-[var(--theme-border-color)] p-2 md:p-3">
       <div 
         className={`grid grid-cols-10 grid-rows-10 gap-0.5 w-full h-full ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}>
         {cells}

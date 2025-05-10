@@ -895,19 +895,22 @@ export default function HuntPage() {
   // ---------------------
 
   return (
-    <div className="flex flex-col min-h-screen text-[var(--theme-text-primary)] font-sans overflow-hidden p-4 md:p-6">
+    <div className="flex flex-col min-h-screen text-[var(--theme-text-primary)] font-sans overflow-hidden">
       
       {/* Render Header */} 
       {huntDetails && (
-          <GameHeader 
-            movesCount={huntDetails.moves.length}
-            maxMoves={huntDetails.maxSteps}
-            onInfoClick={toggleHintPanel}
-          />
+          <div className="p-4 md:p-6">
+            <GameHeader 
+              movesCount={huntDetails.moves.length}
+              maxMoves={huntDetails.maxSteps}
+              onInfoClick={toggleHintPanel}
+            />
+          </div>
       )}
 
       {/* Render Status Bar */} 
       {huntDetails && (
+        <div className="p-4 md:p-6">
           <StatusBar 
             status={huntDetails.state}
             currentLock={huntDetails.lock ?? null}
@@ -918,6 +921,7 @@ export default function HuntPage() {
             lastTxHash={lastTxHash}
             blockExplorerUrl={blockExplorerUrl}
           />
+        </div>
       )}
 
       {/* Main Content Area (Grid) */} 

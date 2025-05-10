@@ -36,7 +36,7 @@ const GameHeader: React.FC<GameHeaderProps> = ({ movesCount, maxMoves, onInfoCli
   // const headerGlowStyle = { ... }; // Removed old glow style
 
   return (
-    <header className="w-full p-3 flex justify-between items-center bg-[var(--theme-card-bg)] border-b-4 border-[var(--theme-border-color)] shadow-lg flex-shrink-0 space-x-2 md:space-x-3">
+    <header className="w-full p-3 flex justify-between items-center bg-[var(--theme-card-bg)] border-4 border-[var(--theme-border-color)] shadow-lg rounded-lg flex-shrink-0 space-x-2 md:space-x-3">
       {/* Back Button */} 
       <Link href="/hunts" className="flex-shrink-0">
         <IconButton ariaLabel="Back to Hunts List" className="">
