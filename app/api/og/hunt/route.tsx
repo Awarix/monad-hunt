@@ -1,7 +1,7 @@
 import { ImageResponse } from '@vercel/og';
 import { NextRequest } from 'next/server';
-import { START_POSITION, GRID_SIZE } from '@/lib/constants';
-import type { Position } from '@/types';
+// import { START_POSITION, GRID_SIZE } from '@/lib/constants';
+// import type { Position } from '@/types';
 
 export const runtime = 'edge'; // Use edge runtime for Vercel OG
 
