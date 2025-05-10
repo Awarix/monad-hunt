@@ -59,8 +59,6 @@ export default function HuntPage() {
   const [isClaimingTurn, setIsClaimingTurn] = useState(false);
   const [claimTurnError, setClaimTurnError] = useState<string | null>(null);
 
-  console.log('[Debug ClaimTurn] claimTurnError:', claimTurnError);
-
   // --- Wagmi Status Logging ---
   useEffect(() => {
     console.log('[Wagmi Account Status] isConnected:', isConnected, 'Address:', connectedAddress);
@@ -377,6 +375,7 @@ export default function HuntPage() {
     } catch (error) {
       console.error("Error claiming turn:", error);
       setClaimTurnError( "An unexpected error occurred while claiming turn.");
+      console.log('[Debug ClaimTurn] claimTurnError:', claimTurnError);
     } finally {
       setIsClaimingTurn(false);
     }

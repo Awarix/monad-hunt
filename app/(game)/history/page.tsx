@@ -13,7 +13,7 @@ const getRarityStyles = (treasureType: TreasureType): { textClass: string; } => 
   switch (treasureType) {
     case TreasureType.RARE: return { textClass: 'text-blue-600 font-semibold' };
     case TreasureType.EPIC: return { textClass: 'text-purple-600 font-semibold' };
-    case TreasureType.COMMON: default: return { textClass: 'text-[var(--theme-text-secondary)] font-medium' }; 
+    case TreasureType.COMMON: default: return { textClass: 'text-lightblue-600 font-semibold' }; 
   }
 };
 
@@ -21,6 +21,8 @@ const getRarityStyles = (treasureType: TreasureType): { textClass: string; } => 
 const MintStatus: React.FC<{ hunt: UserHuntHistoryEntry; connectedAddress?: `0x${string}` }> = ({ hunt, connectedAddress }) => {
     const nftContractAddress = process.env.NEXT_PUBLIC_HUNT_MAP_NFT_ADDRESS as `0x${string}` | undefined;
     const isEnded = hunt.state === HuntState.WON || hunt.state === HuntState.LOST;
+    const secondaryButtonStyle = `font-bold py-2 px-4 rounded-full border-4 border-[var(--theme-border-color)] text-[var(--theme-button-secondary-text)] bg-[var(--theme-button-secondary-bg)] hover:scale-105 transition-transform shadow-sm text-sm disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100`;
+
 
     const numericOnchainHuntId = useMemo(() => {
         if (hunt.onchainHuntId) {
@@ -46,9 +48,11 @@ const MintStatus: React.FC<{ hunt: UserHuntHistoryEntry; connectedAddress?: `0x$
     if (hasMinted === true) return <span className="text-xs text-green-600 font-semibold">NFT Minted</span>;
     
     return (
-        <Link href={`/hunt/${hunt.id}`} className="text-sm text-teal-600 hover:text-teal-700 font-semibold hover:underline">
-            Mint on Hunt Page
-        </Link>
+        <button className={secondaryButtonStyle}>
+            <Link href={`/hunt/${hunt.id}`} className="text-sm text-teal-600 hover:text-teal-700 font-semibold hover:underline">
+                Mint on Hunt Page
+            </Link>
+        </button>
     );
 };
 
@@ -84,7 +88,7 @@ export default function HistoryPage() {
   const pageContainerStyle = "bg-[var(--theme-card-bg)] rounded-2xl shadow-xl p-6 md:p-8 border-4 border-[var(--theme-border-color)] max-w-4xl mx-auto my-8";
   const cardBaseStyle = "bg-[var(--theme-secondary-card-bg)] rounded-xl p-4 border-4 border-[var(--theme-border-color)] flex flex-col sm:flex-row justify-between items-center gap-3 hover:shadow-lg transition-shadow duration-200";
   const linkStyle = "text-teal-600 hover:text-teal-700 font-semibold transition-colors duration-200";
-
+  
   if (!isFarcasterLoaded || (!userFid && !error)) {
     return <div className={`${pageContainerStyle} text-center`}><p className="text-[var(--theme-text-secondary)]">Loading User Data...</p></div>;
   }
@@ -123,7 +127,7 @@ export default function HistoryPage() {
                            {hunt.name || `Hunt ${hunt.id.substring(0, 6)}...`}
                        </h2>
                    </Link>
-                   <div className="space-y-1 text-sm">
+                   <div className="space-y-1 text-sm font-semibold">
                         <p className="text-[var(--theme-text-primary)]">
                             Treasure: <span className={rarityStyle.textClass}>{hunt.treasureType}</span>
                         </p>

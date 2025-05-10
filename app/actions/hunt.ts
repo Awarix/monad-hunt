@@ -78,7 +78,7 @@ export interface ClaimNftResult {
 /**
  * Creates a new hunt initiated by a user, storing it in the DB and onchain.
  */
-export async function createHunt(creatorFid: number): Promise<{ huntId: string } | { error: string }> {
+export async function createHunt(creatorFid: number, creatorDisplayName: string): Promise<{ huntId: string } | { error: string }> {
   // --- Onchain Integration: Generate Salt & Hash ---
   let salt: string | undefined;
   let treasureLocationHash: string | undefined;
@@ -111,7 +111,7 @@ export async function createHunt(creatorFid: number): Promise<{ huntId: string }
 
     const newHuntDBRecord = await prisma.hunt.create({
       data: {
-        name: `Hunt created by ${creatorFid}`,
+        name: `Hunt created by ${creatorDisplayName}`,
         treasureType: treasureTypePrismaEnum,
         treasurePositionX: treasurePosition.x,
         treasurePositionY: treasurePosition.y,
