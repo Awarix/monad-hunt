@@ -33,7 +33,7 @@ const getRarityStyles = (treasureType: TreasureType): {
     case TreasureType.COMMON:
     default:
       return { 
-        textClass: 'text-lightblue-600 font-semibold',
+        textClass: 'text-sky-600 font-semibold',
       }; 
   }
 };
@@ -240,7 +240,7 @@ export default function HuntsListPage() {
                   <h2 className="text-xl font-bold text-[var(--theme-text-primary)] uppercase truncate">
                     {hunt.name || `Hunt ${hunt.id.substring(0,6)}...`}
                   </h2>
-                  <p className={`text-sm mb-1`}>
+                  <p className={`text-sm mb-1 font-semibold`}>
                     Treasure: <span className={`${rarityStyle.textClass}`}>{hunt.treasureType}</span>
                   </p>
                   <p className="text-sm text-[var(--theme-text-secondary)]">
@@ -248,13 +248,13 @@ export default function HuntsListPage() {
                   </p>
                   <p className="text-sm text-[var(--theme-text-secondary)]">
                     {isLockedByOther && hunt.lock && (
-                        <span className="ml-2 font-semibold">Status: <span className="ml-2 text-orange-600 font-semibold">Locked by FID {hunt.lock.playerFid}</span></span>
+                        <span className="font-semibold">Status: <span className="ml-2 text-orange-600 font-semibold">Locked by FID {hunt.lock.playerFid}</span></span>
                     )}
                     {!isLockedByOther && hunt.lock && (
-                        <span className="ml-2 font-semibold">Status: <span className="ml-2 text-green-600 font-semibold">Lock Expired - Ready</span></span>
+                        <span className="font-semibold">Status: <span className="ml-2 text-green-600 font-semibold">Lock Expired - Ready</span></span>
                     )}
                     {canJoin && (
-                        <span className="ml-2 font-semibold">Status: <span className="ml-2 text-green-600 font-semibold">Ready to Join</span></span>
+                        <span className="font-semibold">Status: <span className="ml-2 text-green-600 font-semibold">Ready to Join</span></span>
                     )}
                   </p>
                 </div>

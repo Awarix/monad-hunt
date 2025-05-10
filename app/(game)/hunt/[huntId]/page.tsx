@@ -900,7 +900,7 @@ export default function HuntPage() {
       
       {/* Render Header */} 
       {huntDetails && (
-          <div className="p-4 md:p-6">
+          <div className="p-(4px 16px) md:p-6">
             <GameHeader 
               movesCount={huntDetails.moves.length}
               maxMoves={huntDetails.maxSteps}
@@ -911,7 +911,7 @@ export default function HuntPage() {
 
       {/* Render Status Bar */} 
       {huntDetails && (
-        <div className="p-4 md:p-6">
+        <div className="p-(4px 16px) md:p-6">
           <StatusBar 
             status={huntDetails.state}
             currentLock={huntDetails.lock ?? null}
@@ -1145,7 +1145,7 @@ export default function HuntPage() {
       {/* --- End NFT Claim Section --- */} 
 
       {isHuntActive && (
-        <div className="p-4 md:p-6">
+        <div className="p-(4px 16px) md:p-6">
           <div className="w-full max-w-md mx-auto mt-6 mb-8 p-6 bg-[var(--theme-card-bg)] rounded-xl border-4 border-[var(--theme-border-color)] shadow-xl flex flex-col items-center relative z-10">
               {!canAttemptMove && canClaimTurn && (
                   <button

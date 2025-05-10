@@ -13,7 +13,7 @@ const getRarityStyles = (treasureType: TreasureType): { textClass: string; } => 
   switch (treasureType) {
     case TreasureType.RARE: return { textClass: 'text-blue-600 font-semibold' };
     case TreasureType.EPIC: return { textClass: 'text-purple-600 font-semibold' };
-    case TreasureType.COMMON: default: return { textClass: 'text-lightblue-600 font-semibold' }; 
+    case TreasureType.COMMON: default: return { textClass: 'text-sky-600 font-semibold' }; 
   }
 };
 
@@ -49,7 +49,7 @@ const MintStatus: React.FC<{ hunt: UserHuntHistoryEntry; connectedAddress?: `0x$
     
     return (
         <button className={secondaryButtonStyle}>
-            <Link href={`/hunt/${hunt.id}`} className="text-sm text-teal-600 hover:text-teal-700 font-semibold hover:underline">
+            <Link href={`/hunt/${hunt.id}`} className="text-sm text-black text-decoration-none hover:text-teal-700 font-semibold hover:underline">
                 Mint on Hunt Page
             </Link>
         </button>
