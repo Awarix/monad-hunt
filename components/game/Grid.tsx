@@ -37,7 +37,8 @@ const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable
       }
 
       if (isInteractable) {
-        cellClasses += " cursor-pointer hover:bg-yellow-300 ring-2 ring-yellow-500 ring-inset"; 
+        // Always show ring for interactable cells, keep hover for background change
+        cellClasses += " cursor-pointer ring-2 ring-yellow-500 ring-inset hover:bg-yellow-300"; 
       } else if (tappable && !isPlayer) { 
          cellClasses += " opacity-50"; // Adjacent, not interactable (e.g. part of path already)
       }
@@ -55,7 +56,7 @@ const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable
             </div>
           )}
           {/* Path Trajectory Lines - Draw line from this cell to next in path */} 
-          {isPath && moveHistory.length > 1 && (() => {
+          {/* {isPath && moveHistory.length > 1 && (() => {
             const currentMoveIndex = moveHistory.findIndex(p => p.x === x && p.y === y);
             if (currentMoveIndex !== -1 && currentMoveIndex < moveHistory.length - 1) {
               const nextMove = moveHistory[currentMoveIndex + 1];
@@ -85,7 +86,7 @@ const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable
               );
             }
             return null;
-          })()}
+          })()} */}
         </div>
       );
     }

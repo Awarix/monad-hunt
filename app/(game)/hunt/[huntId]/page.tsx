@@ -350,6 +350,12 @@ export default function HuntPage() {
 
   // --- Action Handlers --- 
   const handleClaimTurn = async () => {
+    // Reset previous transaction status if it was success
+    if (txStatus === 'success') {
+      setTxStatus('idle');
+      setTxError(null);
+    }
+
     if (!huntId || !currentUser?.fid) {
       setClaimTurnError("Cannot claim turn: missing hunt ID or user information.");
       return;
