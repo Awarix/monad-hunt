@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
   const cellSize = 32; // Adjusted cell size for a 10x10 grid within typical OG image dimensions
   const gridBorderWidth = 2;
   const outerBorderWidth = 4;
-  const gridDimension = GRID_SIZE * cellSize + (GRID_SIZE + 1) * gridBorderWidth; // accounts for cell borders
+  // const gridDimension = GRID_SIZE * cellSize + (GRID_SIZE + 1) * gridBorderWidth; // accounts for cell borders
   const cardPadding = 24;
 
   // Font: Stick with Geist Mono for now, ensure it's available.
