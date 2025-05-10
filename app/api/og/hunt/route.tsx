@@ -5,28 +5,28 @@ import type { Position } from '@/types';
 
 export const runtime = 'edge'; // Use edge runtime for Vercel OG
 
-// Helper function to parse path string
-function parsePath(pathStr: string | null): Position[] {
-    if (!pathStr) return [START_POSITION];
-    try {
-        const coords = pathStr.split(';').map(pair => {
-            const [x, y] = pair.split(',').map(Number);
-            if (isNaN(x) || isNaN(y)) throw new Error('Invalid coordinate pair');
-            return { x, y };
-        });
-        // Validate coordinates are within grid bounds if needed
-        return coords.every(p => p.x >= 0 && p.x < GRID_SIZE && p.y >= 0 && p.y < GRID_SIZE) ? coords : [START_POSITION];
-    } catch (e) {
-        console.error("Error parsing path string:", e);
-        return [START_POSITION]; // Default to start position on error
-    }
-}
+// // Helper function to parse path string
+// function parsePath(pathStr: string | null): Position[] {
+//     if (!pathStr) return [START_POSITION];
+//     try {
+//         const coords = pathStr.split(';').map(pair => {
+//             const [x, y] = pair.split(',').map(Number);
+//             if (isNaN(x) || isNaN(y)) throw new Error('Invalid coordinate pair');
+//             return { x, y };
+//         });
+//         // Validate coordinates are within grid bounds if needed
+//         return coords.every(p => p.x >= 0 && p.x < GRID_SIZE && p.y >= 0 && p.y < GRID_SIZE) ? coords : [START_POSITION];
+//     } catch (e) {
+//         console.error("Error parsing path string:", e);
+//         return [START_POSITION]; // Default to start position on error
+//     }
+// }
 
-// Helper function to parse player FIDs string
-function parsePlayers(playersStr: string | null): string[] {
-    if (!playersStr) return [];
-    return playersStr.split(',').filter(fid => fid.trim() !== '' && !isNaN(Number(fid)));
-}
+// // Helper function to parse player FIDs string
+// function parsePlayers(playersStr: string | null): string[] {
+//     if (!playersStr) return [];
+//     return playersStr.split(',').filter(fid => fid.trim() !== '' && !isNaN(Number(fid)));
+// }
 
 
 export async function GET(req: NextRequest) {
