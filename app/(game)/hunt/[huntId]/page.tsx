@@ -1144,6 +1144,7 @@ export default function HuntPage() {
       {/* --- End NFT Claim Section --- */} 
 
       {isHuntActive && (
+        <div className="p-4 md:p-6">
           <div className="w-full max-w-md mx-auto mt-6 mb-8 p-6 bg-[var(--theme-card-bg)] rounded-xl border-4 border-[var(--theme-border-color)] shadow-xl flex flex-col items-center relative z-10">
               {!canAttemptMove && canClaimTurn && (
                   <button
@@ -1155,7 +1156,7 @@ export default function HuntPage() {
                       {isClaimingTurn ? 'Claiming...' : 'Claim Turn'}
                   </button>
               )}
-              {claimTurnError && <p className="mt-2 text-sm text-red-600 font-semibold">{claimTurnError}</p>}
+              {/* {claimTurnError && <p className="mt-2 text-sm text-red-600 font-semibold">{claimTurnError}</p>} */}
 
               {canAttemptMove && (
                    <p className="text-lg text-[var(--theme-text-primary)] font-semibold">
@@ -1163,6 +1164,7 @@ export default function HuntPage() {
                   </p>
               )}
           </div>
+        </div>
       )}
 
     </div>
