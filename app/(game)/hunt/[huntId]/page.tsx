@@ -261,7 +261,7 @@ export default function HuntPage() {
                     const newLock = payload.lock;
                     if (newLock && typeof newLock.expiresAt === 'string') {
                         // Ensure expiresAt is a Date object
-                        (newLock as any).expiresAt = new Date(newLock.expiresAt);
+                        (newLock).expiresAt = new Date(newLock.expiresAt);
                     }
                     setHuntDetails(prev => {
                         if (!prev) return null; // Or handle appropriately if prev can be null initially
@@ -915,7 +915,7 @@ export default function HuntPage() {
       )}
 
       {/* Main Content Area (Grid) */} 
-      <main className="flex-grow flex items-center justify-center p-3 overflow-hidden relative">
+      <main className="flex-grow flex items-center justify-center py-3 px-1 sm:px-2 overflow-hidden relative">
         {/* Transaction Overlay */}
         {showProcessingMove && (
             <div className="absolute inset-0 bg-black bg-opacity-60 flex flex-col justify-center items-center z-20 rounded-lg backdrop-blur-sm">

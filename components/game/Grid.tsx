@@ -92,7 +92,7 @@ const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable
   }
 
   return (
-    <div className="relative w-full max-w-2xl aspect-square shadow-xl bg-[var(--theme-card-bg)] rounded-2xl border-4 border-[var(--theme-border-color)] p-2 md:p-3">
+    <div className="relative w-full max-w-3xl aspect-square shadow-xl bg-[var(--theme-card-bg)] rounded-2xl border-4 border-[var(--theme-border-color)] p-2 md:p-3">
       <div 
         className={`grid grid-cols-10 grid-rows-10 gap-0.5 w-full h-full ${isLoading ? 'opacity-60 cursor-not-allowed' : ''}`}>
         {cells}
