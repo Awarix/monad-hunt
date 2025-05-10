@@ -205,7 +205,7 @@ export default function HuntsListPage() {
         >
           Active Hunts
         </h1>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col gap-4 items-center space-x-4">
             <Link href="/history" className={linkStyle}>
                 My Hunt History
             </Link>

@@ -816,15 +816,12 @@ export default function HuntPage() {
 
   // --- Loading and Error States --- 
   if (!isFarcasterLoaded) {
-      // Apply new theme text color
       return <div className="container mx-auto p-4 text-center text-[var(--theme-text-primary)]"><p>Loading Farcaster Context...</p></div>;
   }
   if (!currentUser && !pageError && !providerError) { 
-      // Apply new theme text color
       return <div className="container mx-auto p-4 text-center text-[var(--theme-text-primary)]"><p>Verifying User...</p></div>;
   }
   if (pageError || providerError) {
-     // Style error message for new theme
      return (
         <div className="container mx-auto p-4 text-center">
             <p className="text-red-600 font-bold text-xl mb-2">Error:</p>
@@ -839,25 +836,18 @@ export default function HuntPage() {
     );
   }
    if (!huntDetails) {
-      // Apply new theme text color
        return <div className="container mx-auto p-4 text-center text-[var(--theme-text-primary)]"><p>Loading Hunt Data...</p></div>;
   }
   // -------------------------------
 
   // Show loading indicator if essential data isn't ready
-  if (isLoading || !isFarcasterLoaded) { // isFarcasterLoaded check is redundant due to above, but harmless
+  if (isLoading || !isFarcasterLoaded) { 
     return <div className="flex justify-center items-center h-screen text-[var(--theme-text-primary)]">Loading game...</div>;
   }
 
-  // Show error if Farcaster failed or hunt data failed to load (already handled above, this is fallback)
-  // if (pageError) { ... }
-
-  // Show message if hunt not found (already handled above, this is fallback)
-  // if (!huntDetails) { ... }
-
    // --- Determine display elements based on state ---
   const showProcessingMove = txStatus === 'submitting' || txStatus === 'confirming' || txStatus === 'updating_db';
-  const allowGridInteraction = doesUserHoldActiveLock && !showProcessingMove && txStatus !== 'error'; // Allow clicks only if it's user's turn and no tx active/error
+  const allowGridInteraction = doesUserHoldActiveLock && !showProcessingMove && txStatus !== 'error'; 
 
   // Base styles for new theme buttons
   const baseButtonStyle = "font-bold py-2.5 px-6 rounded-full border-4 border-[var(--theme-border-color)] text-[var(--theme-button-primary-text)] hover:scale-105 transition-transform shadow-sm disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100";
@@ -867,6 +857,8 @@ export default function HuntPage() {
   const indigoButtonBg = "bg-indigo-500 hover:bg-indigo-600"; // Keep for specific semantic colors if needed
   const cyanButtonBg = "bg-cyan-500 hover:bg-cyan-600"; // Keep for specific semantic colors if needed
 
+  // --- URL for Debug OG Image Button ---
+  const ogDebugUrl = huntId ? `/api/og/hunt?huntId=${huntId}` : null;
 
   // --- Network Check --- 
   if (isConnected && chainId !== monadTestnet.id) {
@@ -927,7 +919,7 @@ export default function HuntPage() {
 
       {/* Main Content Area (Grid) */} 
       <main className="flex-grow flex items-center justify-center py-3 px-1 sm:px-2 overflow-hidden relative">
-        {/* Transaction Overlay */}
+        {/* Transaction Overlay */} 
         {showProcessingMove && (
             <div className="absolute inset-0 bg-black bg-opacity-60 flex flex-col justify-center items-center z-20 rounded-lg backdrop-blur-sm">
               <p className="text-lg font-semibold animate-pulse mb-2">
@@ -950,7 +942,7 @@ export default function HuntPage() {
                <div className="mt-4 w-8 h-8 border-4 border-t-accent border-gray-600 rounded-full animate-spin"></div>
             </div>
         )}
-        {/* Grid itself */}
+        {/* Grid itself */} 
         <div className={`relative ${!allowGridInteraction ? 'opacity-50 cursor-not-allowed' : ''}`}>
             <Grid
                 playerPosition={currentPosition}
@@ -1165,6 +1157,18 @@ export default function HuntPage() {
                   </p>
               )}
           </div>
+        </div>
+      )}
+
+      {/* Debug OG Image Button */} 
+      {ogDebugUrl && (
+        <div className="w-full max-w-md mx-auto mt-6 mb-12 p-4 text-center">
+          <button
+            onClick={() => window.open(ogDebugUrl, '_blank', 'noopener,noreferrer')}
+            className={`${baseButtonStyle} ${secondaryButtonBg}`}
+          >
+            View Debug OG Image
+          </button>
         </div>
       )}
 
