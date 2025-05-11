@@ -859,6 +859,7 @@ export default function HuntPage() {
 
   // --- URL for Debug OG Image Button ---
   const getOgDebugUrl = () => {
+    
     // Use mock data for now
     const params = new URLSearchParams({
       huntId: huntId || '13',
