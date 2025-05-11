@@ -847,7 +847,7 @@ export default function HuntPage() {
 
    // --- Determine display elements based on state ---
   const showProcessingMove = txStatus === 'submitting' || txStatus === 'confirming' || txStatus === 'updating_db';
-  const allowGridInteraction = doesUserHoldActiveLock && !showProcessingMove && txStatus !== 'error'; 
+  // const allowGridInteraction = doesUserHoldActiveLock && !showProcessingMove && txStatus !== 'error'; 
 
   // Base styles for new theme buttons
   const baseButtonStyle = "font-bold py-2.5 px-6 rounded-full border-4 border-[var(--theme-border-color)] text-[var(--theme-button-primary-text)] hover:scale-105 transition-transform shadow-sm disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100";
