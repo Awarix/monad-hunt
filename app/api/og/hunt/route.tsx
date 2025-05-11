@@ -25,7 +25,7 @@ const themeBorder = '#000';
 const themeText = '#000';
 const themeSecondary = '#e0f2fe';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     return new ImageResponse(
       (
@@ -86,7 +86,7 @@ export async function GET(request: Request) {
             height: 480,
           }}>
             {/* SVG Grid */}
-            {/* @ts-ignore Server Component in OG */}
+            {/*  Server Component in OG */}
             <OgGrid path={mockPath} treasure={mockTreasure} treasureType={mockTreasureType} />
           </div>
           {/* Info Section */}
