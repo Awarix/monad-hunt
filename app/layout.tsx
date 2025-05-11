@@ -6,8 +6,8 @@ import { WalletProvider } from "@/components/providers/WalletProvider";
 import FarcasterProvider from "@/components/providers/FarcasterProvider";
 
 // Use GeistSans and GeistMono
-export const geistSans = GeistSans;
-export const geistMono = GeistMono;
+const geistSans = GeistSans;
+const geistMono = GeistMono;
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://monad-hunt.vercel.app'), 
