@@ -858,7 +858,21 @@ export default function HuntPage() {
   const cyanButtonBg = "bg-cyan-500 hover:bg-cyan-600"; // Keep for specific semantic colors if needed
 
   // --- URL for Debug OG Image Button ---
-  const ogDebugUrl = huntId ? `/api/og/hunt?huntId=${huntId}` : null;
+  const getOgDebugUrl = () => {
+    // Use mock data for now
+    const params = new URLSearchParams({
+      huntId: huntId || '13',
+      moves: (huntDetails?.moves.length ?? 7).toString(),
+      maxMoves: (huntDetails?.maxSteps ?? 10).toString(),
+      treasureType: (huntDetails?.treasureType ?? 'EPIC').toString(),
+      adventurers: 'bob.eth,yaix,someboy,lucas.eth',
+      found: (huntDetails?.state === 'WON' ? 'true' : 'false'),
+      path: (huntDetails?.moves?.map(m => `${m.positionX},${m.positionY}`).join(';') ?? '4,4;4,5;5,5;5,6;6,6;6,7;7,7'),
+      treasureX: (huntDetails?.moves?.[huntDetails.moves.length-1]?.positionX ?? 7).toString(),
+      treasureY: (huntDetails?.moves?.[huntDetails.moves.length-1]?.positionY ?? 7).toString(),
+    });
+    return `/api/og/hunt?${params.toString()}`;
+  };
 
   // --- Network Check --- 
   if (isConnected && chainId !== monadTestnet.id) {
@@ -943,13 +957,13 @@ export default function HuntPage() {
             </div>
         )}
         {/* Grid itself */} 
-        <div className={`relative ${!allowGridInteraction ? 'opacity-50 cursor-not-allowed' : ''}`}>
+        <div className={`relative ${!doesUserHoldActiveLock ? 'opacity-50 cursor-not-allowed' : ''}`}>
             <Grid
                 playerPosition={currentPosition}
                 moveHistory={huntDetails.moves.map(m => ({ x: m.positionX, y: m.positionY }))}
                 isCellTappable={isCellTappable}
                 onCellTap={handleGridCellClick}
-                isLoading={showProcessingMove}
+                isLoading={txStatus === 'submitting' || txStatus === 'confirming' || txStatus === 'updating_db'}
                 isGameOver={!isHuntActive}
             />
         </div>
@@ -1161,10 +1175,10 @@ export default function HuntPage() {
       )}
 
       {/* Debug OG Image Button */} 
-      {ogDebugUrl && (
+      {getOgDebugUrl() && (
         <div className="w-full max-w-md mx-auto mt-6 mb-12 p-4 text-center">
           <button
-            onClick={() => window.open(ogDebugUrl, '_blank', 'noopener,noreferrer')}
+            onClick={() => window.open(getOgDebugUrl(), '_blank', 'noopener,noreferrer')}
             className={`${baseButtonStyle} ${secondaryButtonBg}`}
           >
             View Debug OG Image
