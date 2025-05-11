@@ -72,182 +72,76 @@
 //   );
 // } 
 
-// app/api/og/game-result/route.tsx
-import { geistMono } from '@/app/layout';
-import { geistSans } from '@/app/layout';
-import { ImageResponse } from '@vercel/og';
-import { NextRequest } from 'next/server';
-
-export const runtime = 'edge';
-
-// Define cell types
-type CellType = 'empty' | 'hint' | 'treasure';
-
-// Example grid data (10x10) - In a real app, you'd pass this via query params
-const exampleGridData: CellType[][] = Array(10).fill(null).map((_, r) =>
-  Array(10).fill(null).map((_, c) => {
-    // Example hints
-    if ((r === 4 && c === 4) || (r === 4 && c === 5) || (r === 5 && c === 4) || (r === 5 && c === 5) || (r === 3 && c === 6) || (r === 6 && c === 3) ) {
-      return 'hint';
-    }
-    // Example treasure
-    if (r === 5 && c === 7) {
-      return 'treasure';
-    }
-    return 'empty';
-  })
-);
-
-// Function to get styles for each cell type
-const getCellStyles = (type: CellType) => {
-  const baseStyle = {
-    width: 48, // Cell size
-    height: 48, // Cell size
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    border: '2px solid #C8B785', // Cell border color
-    borderRadius: 8, // Rounded corners for cells
-  };
-
-  switch (type) {
-    case 'hint':
-      return { ...baseStyle, backgroundColor: '#FADADD' }; // Light pink
-    case 'treasure':
-      return { ...baseStyle, backgroundColor: '#EFF2D3' }; // Same as empty for treasure cell, circle is drawn inside
-    case 'empty':
-    default:
-      return { ...baseStyle, backgroundColor: '#EFF2D3' }; // Pale greenish-yellow
-  }
-};
-
-export async function GET(req: NextRequest) {
+import { ImageResponse } from 'next/og';
+// App router includes @vercel/og.
+// No need to install it.
+ 
+export async function GET(request: Request) {
   try {
-     //   const { searchParams } = new URL(req.url);
-      //   const huntId = searchParams.get('huntId') || 'Test Hunt';
-    // const gridDataParam = searchParams.get('grid');
-    // const gridData = gridDataParam ? JSON.parse(gridDataParam) : exampleGridData;
-    const gridData = exampleGridData; // Using example for simplicity
-
-    // Load font
-    // const interRegular = await fetch(
-    //   new URL('../../../../assets/fonts/Inter-Regular.ttf', import.meta.url)
-    // ).then((res) => res.arrayBuffer());
-    // const interBold = await fetch(
-    //   new URL('../../../../assets/fonts/Inter-Bold.ttf', import.meta.url)
-    // ).then((res) => res.arrayBuffer());
-    
-    // Ensure you have these fonts in your project at the specified path,
-    // e.g., public/fonts/Inter-Regular.ttf and public/fonts/Inter-Bold.ttf
-    // Or adjust the path:
-    // new URL('/fonts/Inter-Regular.ttf', 'https://your-domain.com') for publicly hosted fonts
-    // For local dev, often new URL('../../../../public/fonts/Inter-Regular.ttf', import.meta.url)
-    // Using a placeholder if fonts aren't set up yet to avoid build errors,
-    // but Vercel OG needs real font data. For testing, you can temporarily remove custom fonts.
-
+    const { searchParams } = new URL(request.url);
+ 
+    // ?title=<title>
+    const hasTitle = searchParams.has('title');
+    const title = hasTitle
+      ? searchParams.get('title')?.slice(0, 100)
+      : 'My default title';
+ 
     return new ImageResponse(
       (
         <div
           style={{
+            backgroundColor: 'black',
+            backgroundSize: '150px 150px',
             height: '100%',
             width: '100%',
             display: 'flex',
-            flexDirection: 'column',
+            textAlign: 'center',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#FDE68A', // Outer gold background
-            fontFamily: '"Inter", sans-serif',
-            padding: 40, // Overall padding
+            flexDirection: 'column',
+            flexWrap: 'nowrap',
           }}
         >
-          <div // Main content container with rounded corners (like the screenshot's outer frame)
+          <div
             style={{
               display: 'flex',
-              flexDirection: 'column',
-              backgroundColor: '#FEF3C7', // Lighter yellow/cream for content area
-              borderRadius: 20, // Rounded corners for the main content box
-              padding: 20, // Padding inside the content box
-              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
-              width: 'auto', // Auto width based on content
-              height: 'auto', // Auto height based on content
+              alignItems: 'center',
+              justifyContent: 'center',
+              justifyItems: 'center',
             }}
           >
-            {/* Header */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '12px 24px',
-                backgroundColor: '#BAE6FD', // Light blue
-                border: '3px solid black',
-                borderRadius: 12,
-                marginBottom: 20,
-                fontSize: 36,
-                fontWeight: 700, // Bold
-                color: '#1F2937', // Dark Gray
-              }}
-            >
-              Hunt Complete: Treasure Found!
-              <span style={{ marginLeft: 12, fontSize: 38 }}>🥕</span>
-            </div>
-
-            {/* Grid Area */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                padding: 15, // Padding around the grid cells
-                backgroundColor: '#FDF2C7', // Grid area background (slightly different from outer)
-                borderRadius: 16,
-                // To make the grid itself have a subtle border if desired:
-                // border: '1px solid #E5E7EB',
-                gap: 6, // Gap between rows
-              }}
-            >
-              {gridData.map((row, rowIndex) => (
-                <div
-                  key={`row-${rowIndex}`}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    gap: 6, // Gap between cells in a row
-                  }}
-                >
-                  {row.map((cellType, colIndex) => (
-                    <div
-                      key={`cell-${rowIndex}-${colIndex}`}
-                      style={getCellStyles(cellType)}
-                    >
-                      {cellType === 'treasure' && (
-                        <div // Treasure Circle
-                          style={{
-                            width: 32,
-                            height: 32,
-                            backgroundColor: '#FACC15', // Gold
-                            borderRadius: '50%',
-                            border: '3px solid #D97706', // Darker Gold/Orange border
-                          }}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
+            <img
+              alt="Vercel"
+              height={200}
+              src="data:image/svg+xml,%3Csvg width='116' height='100' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M57.5 0L115 100H0L57.5 0z' /%3E%3C/svg%3E"
+              style={{ margin: '0 30px' }}
+              width={232}
+            />
+          </div>
+          <div
+            style={{
+              fontSize: 60,
+              fontStyle: 'normal',
+              letterSpacing: '-0.025em',
+              color: 'white',
+              marginTop: 30,
+              padding: '0 120px',
+              lineHeight: 1.4,
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            {title}
           </div>
         </div>
       ),
       {
         width: 1200,
         height: 630,
-        // You can enable emojis if needed, though basic ones might work without it.
-        // emoji: 'twemoji',
-      }
+      },
     );
   } catch (e: any) {
-    console.error(`Failed to generate OG Image: ${e.message}`);
-    return new Response(`Failed to generate OG Image: ${e.message}`, {
+    console.log(`${e.message}`);
+    return new Response(`Failed to generate the image`, {
       status: 500,
     });
   }
