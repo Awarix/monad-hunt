@@ -73,6 +73,8 @@
 // } 
 
 // app/api/og/game-result/route.tsx
+import { geistMono } from '@/app/layout';
+import { geistSans } from '@/app/layout';
 import { ImageResponse } from '@vercel/og';
 import { NextRequest } from 'next/server';
 
@@ -128,12 +130,12 @@ export async function GET(req: NextRequest) {
     const gridData = exampleGridData; // Using example for simplicity
 
     // Load font
-    const interRegular = await fetch(
-      new URL('../../../../assets/fonts/Inter-Regular.ttf', import.meta.url)
-    ).then((res) => res.arrayBuffer());
-    const interBold = await fetch(
-      new URL('../../../../assets/fonts/Inter-Bold.ttf', import.meta.url)
-    ).then((res) => res.arrayBuffer());
+    // const interRegular = await fetch(
+    //   new URL('../../../../assets/fonts/Inter-Regular.ttf', import.meta.url)
+    // ).then((res) => res.arrayBuffer());
+    // const interBold = await fetch(
+    //   new URL('../../../../assets/fonts/Inter-Bold.ttf', import.meta.url)
+    // ).then((res) => res.arrayBuffer());
     
     // Ensure you have these fonts in your project at the specified path,
     // e.g., public/fonts/Inter-Regular.ttf and public/fonts/Inter-Bold.ttf
@@ -239,20 +241,6 @@ export async function GET(req: NextRequest) {
       {
         width: 1200,
         height: 630,
-        fonts: [
-          {
-            name: 'Inter',
-            data: interRegular,
-            weight: 400,
-            style: 'normal',
-          },
-          {
-            name: 'Inter',
-            data: interBold,
-            weight: 700,
-            style: 'normal',
-          },
-        ],
         // You can enable emojis if needed, though basic ones might work without it.
         // emoji: 'twemoji',
       }
