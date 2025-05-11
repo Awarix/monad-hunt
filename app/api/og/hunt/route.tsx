@@ -110,13 +110,13 @@ export async function GET(request: Request) {
             flexDirection: 'column',
             gap: 10,
           }}>
-            <div>
+            <div style={{ display: 'flex', alignItems: 'baseline' }}>
               <span style={{ fontWeight: 700 }}>Adventurers:</span> {adventurers.join(', ')}
             </div>
-            <div>
+            <div style={{ display: 'flex', alignItems: 'baseline' }}>
               <span style={{ fontWeight: 700 }}>Treasure:</span> <span style={{ color: '#a21caf', fontWeight: 800 }}>{treasureType}</span>
             </div>
-            <div>
+            <div style={{ display: 'flex', alignItems: 'baseline' }}>
               <span style={{ fontWeight: 700 }}>Moves:</span> {moves} / {maxMoves}
             </div>
           </div>
