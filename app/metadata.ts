@@ -1,30 +1,24 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  // Updated title and description
   title: 'Treasure Hunt', 
   description: 'Find the treasure in this classic treasure hunt game.', 
   openGraph: {
-    // Updated OG title, description, and image path
     title: 'Treasure Hunt', 
     description: 'Find the treasure in this classic treasure hunt game.', 
-    images: [`https://monad-hunt.vercel.app/icon.png`] 
+    images: [`https://monad-hunt.vercel.app/logo.jpg`] 
   },
   other: {
     'fc:frame': JSON.stringify({
-      version: 'next', // Assuming this version is still correct
-      // Updated image path
-      imageUrl: `https://monad-hunt.vercel.app/icon.png`, 
-      // iconUrl: `${appUrl}/iconUrl.png`, 
+      version: 'next', 
+      imageUrl: `https://monad-hunt.vercel.app/logo.jpg`, 
       button: {
-        // Updated button title and action name
-        title: 'Start Hunting', // Using a clear call to action
+        title: 'Start Hunting', 
         action: {
-          type: 'launch_frame', // Assuming type remains the same
+          type: 'launch_frame', 
           url: 'https://monad-hunt.vercel.app',
-          name: 'Treasure Hunt', // Updated name
-          // Updated splash image and color from farcaster.json
-          splashImageUrl: `https://monad-hunt.vercel.app/splash.png`, 
+          name: 'Treasure Hunt', 
+          splashImageUrl: `https://monad-hunt.vercel.app/logo.jpg`, 
           splashBackgroundColor: '#111622' 
         }
       }

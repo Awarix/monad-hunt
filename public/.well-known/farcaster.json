@@ -7,9 +7,9 @@
   "frame": {
     "version": "1",
     "name": "Treasure Hunt",
-    "iconUrl": "https://monad-hunt.vercel.app/icon.png",
+    "iconUrl": "https://monad-hunt.vercel.app/logo.jpg",
     "homeUrl": "https://monad-hunt.vercel.app",
-    "splashImageUrl": "https://monad-hunt.vercel.app/splash.png",
+    "splashImageUrl": "https://monad-hunt.vercel.app/logo.jpg",
     "splashBackgroundColor": "#eeccff",
     "subtitle": "Find the treasure",
     "description": "Find the treasure in this classic treasure hunt game.",
