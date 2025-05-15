@@ -857,24 +857,6 @@ export default function HuntPage() {
   const indigoButtonBg = "bg-indigo-500 hover:bg-indigo-600"; // Keep for specific semantic colors if needed
   const cyanButtonBg = "bg-cyan-500 hover:bg-cyan-600"; // Keep for specific semantic colors if needed
 
-  // --- URL for Debug OG Image Button ---
-  const getOgDebugUrl = () => {
-    
-    // Use mock data for now
-    const params = new URLSearchParams({
-      huntId: huntId || '13',
-      moves: (huntDetails?.moves.length ?? 7).toString(),
-      maxMoves: (huntDetails?.maxSteps ?? 10).toString(),
-      treasureType: (huntDetails?.treasureType ?? 'EPIC').toString(),
-      adventurers: 'bob.eth,yaix,someboy,lucas.eth',
-      found: (huntDetails?.state === 'WON' ? 'true' : 'false'),
-      path: (huntDetails?.moves?.map(m => `${m.positionX},${m.positionY}`).join(';') ?? '4,4;4,5;5,5;5,6;6,6;6,7;7,7'),
-      treasureX: (huntDetails?.moves?.[huntDetails.moves.length-1]?.positionX ?? 7).toString(),
-      treasureY: (huntDetails?.moves?.[huntDetails.moves.length-1]?.positionY ?? 7).toString(),
-    });
-    return `/api/og/hunt?${params.toString()}`;
-  };
-
   // --- Network Check --- 
   if (isConnected && chainId !== monadTestnet.id) {
     return (
