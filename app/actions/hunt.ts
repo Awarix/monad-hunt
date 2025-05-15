@@ -557,7 +557,10 @@ export async function claimNft(
                 id: true,
                 state: true,
                 treasureType: true,
-                onchainHuntId: true // Fetch onchainHuntId
+                onchainHuntId: true, // Fetch onchainHuntId
+                maxSteps: true, // For OG image maxMoves
+                treasurePositionX: true, // For OG image treasureX
+                treasurePositionY: true, // For OG image treasureY
             },
         });
 
@@ -597,31 +600,39 @@ export async function claimNft(
         }
 
         // 4. Fetch Data for OG Image
-        // Fetch all moves for the path
-        const moves = await prisma.move.findMany({
+        // Fetch all moves for the path and count
+        const movesData = await prisma.move.findMany({
             where: { huntId: huntId },
             orderBy: { moveNumber: 'asc' },
             select: { positionX: true, positionY: true },
         });
+        const totalMovesMade = movesData.length;
+
         // Ensure start position is included if not explicitly stored as move 0
+        // Path should ideally start from the actual first move if START_POSITION is not a move itself.
+        // For now, assuming START_POSITION is always the conceptual beginning.
+        // If movesData can be empty and START_POSITION is the only point, this is fine.
+        // If the first *actual* move is different from START_POSITION and should be the path start, adjust accordingly.
         const pathCoordinates = [
-             START_POSITION, // Assuming START_POSITION is {x: 4, y: 4}
-             ...moves.map(m => ({ x: m.positionX, y: m.positionY }))
+             START_POSITION, 
+             ...movesData.map(m => ({ x: m.positionX, y: m.positionY }))
         ];
         const pathString = pathCoordinates.map(p => `${p.x},${p.y}`).join(';');
 
         // Fetch distinct participant FIDs
         const distinctParticipants = await prisma.move.groupBy({
-            by: ['userId'],
+            by: ['userId'], // Group by userId to get unique FIDs
             where: { huntId: huntId },
             _count: {
-                 userId: true, // Count is just to make groupBy work
+                 userId: true, 
             },
         });
-        const playerFids = distinctParticipants.map(p => p.userId).join(',');
+        // Convert FIDs to strings for the adventurers list
+        const adventurersString = distinctParticipants.map(p => p.userId.toString()).join(',');
 
-        // Determine outcome string
-        const outcome = hunt.state === HuntState.WON ? 'WON' : 'LOST';
+
+        // Determine outcome for 'found' parameter
+        const foundTreasure = hunt.state === HuntState.WON;
 
         // 5. Construct Vercel OG Image URL
         const appUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -631,14 +642,18 @@ export async function claimNft(
         }
 
         const ogUrlParams = new URLSearchParams({
-            huntId: hunt.id,
-            outcome: outcome,
-            treasure: hunt.treasureType,
+            huntId: hunt.id, // Use CUID from DB as huntId for OG image
+            treasureType: hunt.treasureType, // Use the correct prop name
+            moves: totalMovesMade.toString(), // Add total moves
+            maxMoves: hunt.maxSteps.toString(), // Add max moves
+            adventurers: adventurersString, // Use the correct prop name and FIDs
+            found: foundTreasure.toString(), // Use boolean 'found'
             path: pathString,
-            players: playerFids,
+            treasureX: hunt.treasurePositionX.toString(), // Add treasure X
+            treasureY: hunt.treasurePositionY.toString(), // Add treasure Y
         });
 
-        const tokenUri = `${appUrl}/api/og/hunt?${ogUrlParams.toString()}`;
+        const tokenUri = `${appUrl}/og?${ogUrlParams.toString()}`;
         console.log(`Generated tokenUri for hunt ${huntId}: ${tokenUri}`);
 
         return { success: true, tokenUri: tokenUri };
