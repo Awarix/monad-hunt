@@ -1,47 +1,9 @@
-'use client'; // Still need client component for Link/Image?
+'use client';
 
 import Link from 'next/link';
 import Image from 'next/image';
-// Removed useEffect, useRouter, useAccount, ConnectWalletButton
-
-// Define TreasureType if not already globally available or imported
-type TreasureType = 'common' | 'rare' | 'epic';
-
-interface OgImageData {
-  huntId: string;
-  treasureType: TreasureType;
-  moves: number;
-  maxMoves: number;
-  adventurers: string; // Comma-separated
-  found: boolean;
-  path: string; // Semicolon-separated coordinates, e.g., "0,0;1,0;1,1"
-  treasureX: number;
-  treasureY: number;
-}
-
-const MOCK_OG_DATA: OgImageData = {
-  huntId: 'og-test-123',
-  treasureType: 'epic',
-  moves: 7,
-  maxMoves: 10,
-  adventurers: 'Gandalf,Frodo,Samwise',
-  found: true,
-  path: '4,4;4,5;5,5;5,6;6,6;6,7;7,7', // Example path starting near center
-  treasureX: 7,
-  treasureY: 7,
-};
 
 export default function HomePage() {
-  // Removed router and account hooks
-  // Removed useEffect for redirection
-
-  const handleTestOgImage = () => {
-    const params = new URLSearchParams();
-    Object.entries(MOCK_OG_DATA).forEach(([key, value]) => {
-      params.append(key, String(value));
-    });
-    window.open(`/api/og/hunt?${params.toString()}`, '_blank');
-  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
@@ -69,14 +31,6 @@ export default function HomePage() {
         </button>
       </Link>
 
-      {/* Test OG Image Button */}
-      <button
-        type="button"
-        onClick={handleTestOgImage}
-        className="mt-6 px-8 py-3 bg-teal-500 text-white font-bold rounded-full border-4 border-black hover:bg-teal-600 transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500"
-      >
-        Test OG Image
-      </button>
     </div>
   );
 }
