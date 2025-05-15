@@ -1175,18 +1175,6 @@ export default function HuntPage() {
         </div>
       )}
 
-      {/* Debug OG Image Button */} 
-      {getOgDebugUrl() && (
-        <div className="w-full max-w-md mx-auto mt-6 mb-12 p-4 text-center">
-          <button
-            onClick={handleClaimNft}
-            className={`${baseButtonStyle} ${secondaryButtonBg}`}
-          >
-            View Debug OG Image
-          </button>
-        </div>
-      )}
-
     </div>
   );
 } 
