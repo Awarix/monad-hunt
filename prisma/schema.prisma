@@ -17,6 +17,7 @@ model User {
   updatedAt   DateTime  @updatedAt
   moves             Move[]     // Moves made by this user
   locks             HuntLock[] // Locks held by this user (relation name for clarity)
+  userTreasures     UserTreasure[] // Treasures received by this user
 }
 
 model Hunt {
@@ -36,6 +37,7 @@ model Hunt {
   onchainHuntId     String? @unique // Numeric ID used onchain (stored as string)
   moves        Move[]    // Sequence of moves in this hunt
   lock         HuntLock? // Optional one-to-one relation to HuntLock
+  userTreasures UserTreasure[] // Treasures awarded from this hunt
 }
 
 model Move {
@@ -80,4 +82,19 @@ model HuntLock {
   user          User      @relation(fields: [playerFid], references: [fid])
 
   @@index([playerFid]) // Index for faster lookup of locks by user
+} 
+
+model UserTreasure {
+  id           String    @id @default(cuid())
+  userId       Int       // FID of the user who received the treasure
+  user         User      @relation(fields: [userId], references: [fid])
+  huntId       String    // ID of the hunt from which the treasure was received
+  hunt         Hunt      @relation(fields: [huntId], references: [id])
+  treasureType TreasureType // The type of treasure received (COMMON, RARE, EPIC)
+  isOpened     Boolean   @default(false) // Whether the user has "opened/claimed" this specific treasure
+  receivedAt   DateTime  @default(now()) // Timestamp when the treasure was recorded
+
+  @@unique([userId, huntId]) // Ensures a user receives treasure only once per hunt
+  @@index([userId])
+  @@index([huntId])
 } 
