@@ -1,6 +1,6 @@
 'use server';
 
-import { PrismaClient, HuntState, TreasureType, Move, HuntLock, Prisma } from '@prisma/client';
+import { PrismaClient, HuntState, TreasureType, Move, HuntLock, Prisma, Hunt } from '@prisma/client';
 import type { LockUpdatePayload, HuntUpdatePayload, Position } from '@/types';
 import { 
     generateHint, 
@@ -44,6 +44,8 @@ export interface HuntDetails {
   endedAt: Date | null;
   lastMoveUserId: number | null;
   onchainHuntId?: string | null;
+  nftImageIpfsCid?: string | null; // Added for return type
+  nftMetadataIpfsCid?: string | null; // Added for return type
   moves: Move[];
   lock: HuntLock | null;
 }
@@ -317,373 +319,309 @@ export async function claimHuntTurn(huntId: string, claimerFid: number): Promise
 export async function submitMove(
     huntId: string,
     submitterFid: number,
-    submitterWalletAddress: string, // Address from useAccount() on frontend
-    transactionHash: string // Hash of the makeMove transaction submitted by the user
+    submitterWalletAddress: string,
+    transactionHash: string
 ): Promise<SubmitResult> {
-  console.log(`submitMove called for hunt ${huntId} by FID ${submitterFid}, address: ${submitterWalletAddress}, txHash: ${transactionHash}`);
+    console.log(`submitMove called for hunt ${huntId} by FID ${submitterFid}, address: ${submitterWalletAddress}, txHash: ${transactionHash}`);
 
-  try {
-    // 1. Validate Lock & Fetch Onchain ID
-    const huntLock = await prisma.huntLock.findUnique({ where: { huntId } });
-    const huntData = await prisma.hunt.findUnique({
-        where: { id: huntId }, // huntId is CUID
-        select: { state: true, id: true, onchainHuntId: true } // Fetch onchainHuntId
-    });
+    let initialHuntDataForNftGeneration: {
+        id: string;
+        name: string | null;
+        treasureType: TreasureType;
+        treasurePositionX: number;
+        treasurePositionY: number;
+        maxSteps: number;
+        state: HuntState; // This will be the newly updated state (WON/LOST)
+        nftImageIpfsCid: string | null;
+        nftMetadataIpfsCid: string | null;
+    } | null = null;
 
-    if (!huntData) return { success: false, error: "Hunt not found." };
-    if (!huntData.onchainHuntId) {
-        console.error(`submitMove: Hunt ${huntId} (CUID) is missing its onchainHuntId.`);
-        return { success: false, error: "Hunt's onchain identifier is missing. Cannot process move." };
-    }
-    const numericOnchainHuntId = BigInt(huntData.onchainHuntId); // For contract calls and event comparison
-
-    // We check ACTIVE state here from DB, but the contract is the ultimate source of truth after tx
-    if (huntData.state !== HuntState.ACTIVE) return { success: false, error: "Hunt is already finished (according to DB)." };
-    if (!huntLock) return { success: false, error: "You do not have the lock for this hunt." };
-    if (huntLock.playerFid !== submitterFid) return { success: false, error: `Lock held by FID ${huntLock.playerFid}, not you (${submitterFid}).` };
-    if (huntLock.expiresAt < new Date()) {
-        // NOTE: Even if lock expired *after* tx submission but *before* this check,
-        // the onchain transaction might still succeed if it was mined quickly.
-        // The contract's `makeMove` does NOT check the off-chain lock.
-        // We keep this check primarily to prevent users calling this *after* lock expiry.
-        return { success: false, error: "Your lock has expired." };
-    }
-
-    // 2. Wait for Transaction Confirmation
-    console.log(`Waiting for transaction confirmation: ${transactionHash}...`);
-    const receipt = await provider.waitForTransaction(transactionHash, 1, 120000); // Wait for 1 confirmation, timeout 120s
-
-    if (!receipt) {
-        // This should ideally not happen with waitForTransaction unless timeout occurs
-        console.error(`Transaction receipt not found after timeout for ${transactionHash}`);
-        return { success: false, error: "Transaction confirmation timed out." };
-    }
-
-    if (receipt.status !== 1) {
-        console.error(`Transaction failed: ${transactionHash}`, receipt);
-        // TODO: Should we delete the lock here if the onchain tx failed?
-        // Probably not, as the user might want to retry with more gas etc.
-        return { success: false, error: "Onchain transaction failed." };
-    }
-    console.log(`Transaction confirmed: ${transactionHash} in block ${receipt.blockNumber}`);
-
-    // 3. Verify Onchain Event and Extract Data (Recommended)
-    let moveDataFromEvent: { newX: number; newY: number; moveNumber: number } | null = null;
     try {
-        const iface = treasureHuntManagerContractProvider.interface; // Use interface from provider contract
-        for (const log of receipt.logs) {
-             // Check if the log is from our contract
-             if (log.address.toLowerCase() === treasureHuntManagerContractProvider.target.toString().toLowerCase()) {
-                try {
-                    const parsedLog = iface.parseLog(log);
-                    if (parsedLog && parsedLog.name === 'MoveMade') {
-                        // Ensure args exist and have expected types/names based on ABI
-                        // Compare event player address with the address passed from frontend
-                        // Compare numeric onchainHuntId with the one from the event
-                        if (parsedLog.args &&
-                            parsedLog.args.huntId === numericOnchainHuntId && 
-                            parsedLog.args.player.toLowerCase() === submitterWalletAddress.toLowerCase()
-                        ) { 
+        const huntLock = await prisma.huntLock.findUnique({ where: { huntId } });
+        const huntDataForValidation = await prisma.hunt.findUnique({
+            where: { id: huntId },
+            select: { state: true, id: true, onchainHuntId: true, nftImageIpfsCid: true, nftMetadataIpfsCid: true }
+        });
+
+        if (!huntDataForValidation) return { success: false, error: "Hunt not found." };
+        if (!huntDataForValidation.onchainHuntId) {
+            console.error(`submitMove: Hunt ${huntId} (CUID) is missing its onchainHuntId.`);
+            return { success: false, error: "Hunt's onchain identifier is missing. Cannot process move." };
+        }
+        const numericOnchainHuntId = BigInt(huntDataForValidation.onchainHuntId);
+
+        if (huntDataForValidation.state !== HuntState.ACTIVE) return { success: false, error: "Hunt is already finished (according to DB)." };
+        if (!huntLock) return { success: false, error: "You do not have the lock for this hunt." };
+        if (huntLock.playerFid !== submitterFid) return { success: false, error: `Lock held by FID ${huntLock.playerFid}, not you (${submitterFid}).` };
+        if (huntLock.expiresAt < new Date()) return { success: false, error: "Your lock has expired." };
+
+        console.log(`Waiting for transaction confirmation: ${transactionHash}...`);
+        const receipt = await provider.waitForTransaction(transactionHash, 1, 120000);
+
+        if (!receipt || receipt.status !== 1) {
+            console.error(`Transaction failed or receipt not found for ${transactionHash}`, receipt);
+            return { success: false, error: receipt ? "Onchain transaction failed." : "Transaction confirmation timed out." };
+        }
+        console.log(`Transaction confirmed: ${transactionHash} in block ${receipt.blockNumber}`);
+
+        let moveDataFromEvent: { newX: number; newY: number; moveNumber: number } | null = null;
+        try {
+            const iface = treasureHuntManagerContractProvider.interface;
+            for (const log of receipt.logs) {
+                if (log.address.toLowerCase() === treasureHuntManagerContractProvider.target.toString().toLowerCase()) {
+                    try {
+                        const parsedLog = iface.parseLog(log);
+                        if (parsedLog && parsedLog.name === 'MoveMade' && parsedLog.args.huntId === numericOnchainHuntId && parsedLog.args.player.toLowerCase() === submitterWalletAddress.toLowerCase()) {
                             moveDataFromEvent = {
-                                newX: Number(parsedLog.args.newX), // Convert BigInt/Number as needed
+                                newX: Number(parsedLog.args.newX),
                                 newY: Number(parsedLog.args.newY),
                                 moveNumber: Number(parsedLog.args.moveNumber)
                             };
                             console.log('Parsed MoveMade event:', moveDataFromEvent);
                             break;
                         }
-                    }
-                } catch {}
-            }
-        }
-        if (!moveDataFromEvent) {
-             console.warn(`Could not find or parse valid MoveMade event for hunt ${huntId} / player ${submitterWalletAddress} in tx ${transactionHash}`);
-             // Decide whether to proceed without event verification or return error
-             // For now, let's proceed but log heavily. Alternatively: return { success: false, error: "Could not verify move via event logs." };
-        }
-    } catch (eventError) {
-        console.error("Error parsing event logs:", eventError);
-        // Decide how critical event parsing is. Proceeding without it for now.
-    }
-
-    // 4. Update Database State within a Transaction
-    const result = await prisma.$transaction(async (tx) => {
-        // Fetch latest hunt data *needed for hint generation or state check*
-        // Also fetch previous moves to determine the last position for hint generation
-        // We select more fields now for potential NFT metadata generation
-        const currentHuntForTx = await tx.hunt.findUnique({
-            where: { id: huntId },
-            select: {
-                id: true, // For OG image params if needed directly
-                name: true, // For NFT metadata
-                treasurePositionX: true,
-                treasurePositionY: true,
-                maxSteps: true,
-                treasureType: true,
-                nftImageIpfsCid: true, // Check if already generated
-                nftMetadataIpfsCid: true, // Check if already generated
-                moves: { // For previous position and potentially for full path if needed later
-                    orderBy: { moveNumber: 'desc' },
-                    take: 1 // Only need the very last one for hint
+                    } catch { /* ignore parsing errors for unrelated logs */ }
                 }
             }
+            if (!moveDataFromEvent) console.warn(`Could not find or parse valid MoveMade event for hunt ${huntId} in tx ${transactionHash}`);
+        } catch (eventError) {
+            console.error("Error parsing event logs:", eventError);
+        }
+
+        // ****** Main Transaction START ******
+        const transactionResult = await prisma.$transaction(async (tx) => {
+            const currentHuntForTx = await tx.hunt.findUnique({
+                where: { id: huntId },
+                select: {
+                    id: true, name: true, treasurePositionX: true, treasurePositionY: true,
+                    maxSteps: true, treasureType: true, state: true, // Keep state for final check
+                    moves: { orderBy: { moveNumber: 'desc' }, take: 1 }
+                }
+            });
+            if (!currentHuntForTx) throw new Error("Failed to fetch current hunt data for processing.");
+
+            const onchainHuntDetails = await treasureHuntManagerContractProvider.getHuntDetails(numericOnchainHuntId);
+            const isOnchainActive = await treasureHuntManagerContractProvider.isHuntActive(numericOnchainHuntId);
+            if (!onchainHuntDetails) throw new Error("Failed to fetch hunt details from contract after move.");
+
+            const finalX = moveDataFromEvent ? moveDataFromEvent.newX : Number(onchainHuntDetails.currentX);
+            const finalY = moveDataFromEvent ? moveDataFromEvent.newY : Number(onchainHuntDetails.currentY);
+            const finalMoveNumber = moveDataFromEvent ? moveDataFromEvent.moveNumber : Number(onchainHuntDetails.movesMade);
+
+            const previousMove = currentHuntForTx.moves[0];
+            const previousPosition: Position = previousMove ? { x: previousMove.positionX, y: previousMove.positionY } : START_POSITION;
+            const currentPosition: Position = { x: finalX, y: finalY };
+            const treasurePosition: Position = { x: currentHuntForTx.treasurePositionX, y: currentHuntForTx.treasurePositionY };
+            const hintGenerated = generateHint(currentPosition, previousPosition, treasurePosition, finalMoveNumber);
+
+            let finalDbState: HuntState = HuntState.ACTIVE;
+            const treasureFoundThisMove = finalX === currentHuntForTx.treasurePositionX && finalY === currentHuntForTx.treasurePositionY;
+
+            if (treasureFoundThisMove) {
+                finalDbState = HuntState.WON;
+            } else if (!isOnchainActive || finalMoveNumber >= currentHuntForTx.maxSteps) {
+                finalDbState = HuntState.LOST;
+            }
+            console.log(`Determined finalDbState: ${finalDbState}`);
+
+
+            await tx.move.create({
+                data: {
+                    huntId: huntId, userId: submitterFid, moveNumber: finalMoveNumber,
+                    positionX: finalX, positionY: finalY, hintGenerated: hintGenerated, transactionHash: transactionHash,
+                },
+            });
+            console.log(`Created Move record for move ${finalMoveNumber}`);
+
+            const huntUpdateData: Prisma.HuntUpdateInput = {
+                lastMoveUserId: submitterFid,
+                state: finalDbState,
+                endedAt: (finalDbState === HuntState.WON || finalDbState === HuntState.LOST) ? new Date() : null,
+            };
+            const updatedHuntInTx = await tx.hunt.update({ where: { id: huntId }, data: huntUpdateData });
+            console.log(`Updated Hunt record state to ${finalDbState}.`);
+
+            if (finalDbState === HuntState.WON) {
+                const participants = await tx.move.groupBy({
+                    by: ['userId'], where: { huntId: huntId }, _count: { userId: true },
+                });
+                const userTreasureCreateData = participants.map(p => ({
+                    userId: p.userId, huntId: huntId, treasureType: currentHuntForTx.treasureType,
+                }));
+                if (userTreasureCreateData.length > 0) {
+                    await tx.userTreasure.createMany({ data: userTreasureCreateData, skipDuplicates: true });
+                    console.log(`Created ${userTreasureCreateData.length} UserTreasure records.`);
+                }
+            }
+
+            await tx.huntLock.delete({ where: { huntId } });
+            console.log(`Deleted HuntLock for hunt ${huntId}`);
+
+            // Return data needed for NFT generation if hunt ended, and for broadcast
+            return {
+                ...updatedHuntInTx, // This now contains the updated state
+                treasurePositionX: currentHuntForTx.treasurePositionX, // Add these back as they are not in updatedHuntInTx by default
+                treasurePositionY: currentHuntForTx.treasurePositionY,
+                // CIDs will be null/undefined here initially
+                nftImageIpfsCid: huntDataForValidation.nftImageIpfsCid, 
+                nftMetadataIpfsCid: huntDataForValidation.nftMetadataIpfsCid,
+                moves: await tx.move.findMany({ where: { huntId: huntId }, orderBy: { moveNumber: 'asc' } }), // For broadcast
+                lock: null // Lock is deleted
+            };
         });
-        if (!currentHuntForTx) {
-            throw new Error("Failed to fetch current hunt data for processing.");
-        }
+        // ****** Main Transaction END ******
 
-        // Fetch latest onchain state post-transaction
-        // Use numericOnchainHuntId for contract calls
-        const onchainHuntDetails = await treasureHuntManagerContractProvider.getHuntDetails(numericOnchainHuntId);
-        const isOnchainActive = await treasureHuntManagerContractProvider.isHuntActive(numericOnchainHuntId);
-
-        if (!onchainHuntDetails) {
-            throw new Error("Failed to fetch hunt details from contract after move.");
-        }
-
-        // Use event data if available and valid, otherwise fall back to contract state
-        const finalX = moveDataFromEvent ? moveDataFromEvent.newX : Number(onchainHuntDetails.currentX);
-        const finalY = moveDataFromEvent ? moveDataFromEvent.newY : Number(onchainHuntDetails.currentY);
-        const finalMoveNumber = moveDataFromEvent ? moveDataFromEvent.moveNumber : Number(onchainHuntDetails.movesMade);
-
-        // Determine previous position for hint generation (Fix #1)
-        const previousMove = currentHuntForTx.moves[0]; // Since we ordered desc and took 1
-        const previousPosition: Position = previousMove 
-            ? { x: previousMove.positionX, y: previousMove.positionY } 
-            : START_POSITION; // Fallback for the very first move
-        const currentPosition: Position = { x: finalX, y: finalY };
-        const treasurePosition: Position = { x: currentHuntForTx.treasurePositionX, y: currentHuntForTx.treasurePositionY };
-
-        // Generate Hint using the correct helper function
-        const hintGenerated = generateHint(
-            currentPosition,
-            previousPosition,
-            treasurePosition,
-            finalMoveNumber
-        );
-        console.log(`Generated hint for move ${finalMoveNumber}: ${hintGenerated}`);
-
-        // Determine final DB state based on move result and contract state (Fix #4)
-        let finalDbState: HuntState = HuntState.ACTIVE;
-        const treasureFoundThisMove = finalX === currentHuntForTx.treasurePositionX && finalY === currentHuntForTx.treasurePositionY;
-
-        if (treasureFoundThisMove) {
-            finalDbState = HuntState.WON;
-            console.log(`Treasure found on move ${finalMoveNumber}! State set to WON.`);
-        } else if (!isOnchainActive) {
-            // If treasure not found this move AND hunt is inactive onchain (likely max steps reached)
-            finalDbState = HuntState.LOST;
-            console.log(`Hunt inactive onchain and treasure not found. State set to LOST.`);
-        } else if (finalMoveNumber >= currentHuntForTx.maxSteps) {
-            // Belt-and-suspenders check: if DB move number reaches max steps, mark as LOST
-            // This handles cases where isOnchainActive might lag slightly or has different logic
-             finalDbState = HuntState.LOST;
-             console.log(`Max steps (${currentHuntForTx.maxSteps}) reached. State set to LOST.`);
-        }
-
-        // Create the Move record based on verified data
-        await tx.move.create({
-            data: {
-                huntId: huntId,
-                userId: submitterFid,
-                moveNumber: finalMoveNumber,
-                positionX: finalX,
-                positionY: finalY,
-                hintGenerated: hintGenerated, // Use generated hint
-                transactionHash: transactionHash, 
-            },
+        initialHuntDataForNftGeneration = { // Prepare data for potential NFT generation step
+            id: transactionResult.id,
+            name: transactionResult.name,
+            treasureType: transactionResult.treasureType,
+            treasurePositionX: transactionResult.treasurePositionX,
+            treasurePositionY: transactionResult.treasurePositionY,
+            maxSteps: transactionResult.maxSteps,
+            state: transactionResult.state,
+            nftImageIpfsCid: transactionResult.nftImageIpfsCid, // Pass existing CIDs
+            nftMetadataIpfsCid: transactionResult.nftMetadataIpfsCid
+        };
+        
+        // Broadcast update with hunt details from the transaction
+        // Ensure transactionResult has all fields for HuntDetails. If not, fetch them.
+        // For HuntDetails, we need: id, name, treasureType, treasurePositionX, treasurePositionY, maxSteps, state, createdAt, endedAt, lastMoveUserId, onchainHuntId, nftImageIpfsCid, nftMetadataIpfsCid, moves, lock
+        
+        // Re-fetch full details for broadcast to ensure consistency, as transactionResult might be partial
+        const completeHuntDetailsForBroadcast = await prisma.hunt.findUnique({
+            where: { id: huntId },
+            include: {
+                moves: { orderBy: { moveNumber: 'asc' } },
+                lock: true, // Should be null now
+            }
         });
-        console.log(`Created Move record for move ${finalMoveNumber}`);
 
-        let newNftImageCid: string | null = null;
-        let newNftMetadataCid: string | null = null;
+        if (!completeHuntDetailsForBroadcast) {
+            // This should not happen if the transaction succeeded
+            console.error("Failed to fetch complete hunt details post-transaction for broadcast.");
+            // Fallback to transactionResult, though it might miss some associations for HuntDetails type
+             const huntUpdatePayload: HuntUpdatePayload = { type: 'hunt_update', details: transactionResult as unknown as HuntDetails };
+             await broadcastHuntUpdate(huntId, huntUpdatePayload);
+        } else {
+            const huntUpdatePayload: HuntUpdatePayload = { type: 'hunt_update', details: completeHuntDetailsForBroadcast };
+            await broadcastHuntUpdate(huntId, huntUpdatePayload);
+        }
 
-        // If the hunt has ended (WON or LOST) and NFT CIDs are not yet generated
-        if ((finalDbState === HuntState.WON || finalDbState === HuntState.LOST) && !currentHuntForTx.nftImageIpfsCid && !currentHuntForTx.nftMetadataIpfsCid) {
-            console.log(`Hunt ${huntId} ended with state ${finalDbState}. Attempting to generate NFT assets...`);
+
+        const lockUpdatePayload: LockUpdatePayload = { type: 'lock_update', lock: null };
+        await broadcastHuntUpdate(huntId, lockUpdatePayload); // Ensure lock removal is broadcasted
+        await broadcastHuntsListUpdate();
+
+        let finalHuntToReturn: HuntDetails = completeHuntDetailsForBroadcast || transactionResult as unknown as HuntDetails;
+
+
+        // ****** Post-Transaction NFT Generation START ******
+        if (initialHuntDataForNftGeneration && (initialHuntDataForNftGeneration.state === HuntState.WON || initialHuntDataForNftGeneration.state === HuntState.LOST) && !initialHuntDataForNftGeneration.nftImageIpfsCid && !initialHuntDataForNftGeneration.nftMetadataIpfsCid) {
+            console.log(`Hunt ${huntId} ended. Attempting to generate NFT assets post-transaction...`);
+            let newNftImageCid: string | null = null;
+            let newNftMetadataCid: string | null = null;
+
             try {
-                // Fetch all moves for the path and count, and participant FIDs
-                const allMovesForNft = await tx.move.findMany({
+                const allMovesForNft = await prisma.move.findMany({ // Fetch outside transaction
                     where: { huntId: huntId },
                     orderBy: { moveNumber: 'asc' },
                     select: { positionX: true, positionY: true, userId: true },
                 });
 
                 const totalMovesMadeForNft = allMovesForNft.length;
-                const pathCoordinates = [
-                    START_POSITION,
-                    ...allMovesForNft.map(m => ({ x: m.positionX, y: m.positionY }))
-                ];
+                const pathCoordinates = [START_POSITION, ...allMovesForNft.map(m => ({ x: m.positionX, y: m.positionY }))];
                 const pathString = pathCoordinates.map(p => `${p.x},${p.y}`).join(';');
 
                 const participantFids = [...new Set(allMovesForNft.map(m => m.userId))];
                 let adventurersString = 'Explorers';
                 if (participantFids.length > 0) {
-                    const users = await tx.user.findMany({
-                        where: { fid: { in: participantFids } },
-                        select: { fid: true, username: true, displayName: true },
-                    });
+                    const users = await prisma.user.findMany({ where: { fid: { in: participantFids } }, select: { fid: true, username: true, displayName: true } });
                     const userMap = new Map(users.map(u => [u.fid, u]));
-                    adventurersString = participantFids.map(fid => {
-                        const user = userMap.get(fid);
-                        return user?.displayName || user?.username || `FID: ${fid.toString()}`;
-                    }).join(', ');
+                    adventurersString = participantFids.map(fid => userMap.get(fid)?.displayName || userMap.get(fid)?.username || `FID: ${fid.toString()}`).join(', ');
                 }
-                
+
                 const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-                if (!appUrl) {
-                    console.error("[NFT Generation] NEXT_PUBLIC_APP_URL is not set. Cannot fetch OG image.");
-                    throw new Error("Server configuration error: App URL not set for NFT generation.");
-                }
+                if (!appUrl) throw new Error("Server configuration error: App URL not set for NFT generation.");
 
                 const ogUrlParams = new URLSearchParams({
-                    huntId: currentHuntForTx.id,
-                    treasureType: currentHuntForTx.treasureType,
+                    huntId: initialHuntDataForNftGeneration.id,
+                    treasureType: initialHuntDataForNftGeneration.treasureType,
                     moves: totalMovesMadeForNft.toString(),
-                    maxMoves: currentHuntForTx.maxSteps.toString(),
+                    maxMoves: initialHuntDataForNftGeneration.maxSteps.toString(),
                     adventurers: adventurersString,
-                    found: (finalDbState === HuntState.WON).toString(),
+                    found: (initialHuntDataForNftGeneration.state === HuntState.WON).toString(),
                     path: pathString,
-                    treasureX: currentHuntForTx.treasurePositionX.toString(),
-                    treasureY: currentHuntForTx.treasurePositionY.toString(),
+                    treasureX: initialHuntDataForNftGeneration.treasurePositionX.toString(),
+                    treasureY: initialHuntDataForNftGeneration.treasurePositionY.toString(),
                 });
                 const ogImageUrl = `${appUrl}/og?${ogUrlParams.toString()}`;
-                console.log(`[NFT Generation] Fetching OG image from: ${ogImageUrl}`);
+                console.log(`[NFT Generation Post-Tx] Fetching OG image from: ${ogImageUrl}`);
 
                 const imageResponse = await fetch(ogImageUrl);
-                if (!imageResponse.ok) {
-                    throw new Error(`Failed to fetch OG image: ${imageResponse.status} ${imageResponse.statusText}`);
-                }
+                if (!imageResponse.ok) throw new Error(`Failed to fetch OG image: ${imageResponse.status} ${imageResponse.statusText}`);
                 const imageBuffer = await imageResponse.arrayBuffer();
-                
-                // Pin image to Pinata
                 const imageContentType = imageResponse.headers.get('content-type') || 'image/png';
                 const imageBlob = new Blob([imageBuffer], { type: imageContentType });
                 const imageName = `hunt-${huntId}-og-image.png`;
                 const imageFile = new File([imageBlob], imageName, { type: imageContentType });
                 const imagePinResult = await pinata.upload.public.file(imageFile);
                 newNftImageCid = imagePinResult.cid;
-                console.log(`[NFT Generation] Pinned image to IPFS. CID: ${newNftImageCid}`);
+                console.log(`[NFT Generation Post-Tx] Pinned image to IPFS. CID: ${newNftImageCid}`);
 
-                // Construct NFT Metadata
                 const nftMetadata = {
-                    name: `Treasure Hunt Map - ${currentHuntForTx.name || `Hunt #${currentHuntForTx.id.substring(0,6)}`}`,
-                    description: `A unique map NFT for the Treasure Hunt titled "${currentHuntForTx.name || 'Untitled Hunt'}" (ID: ${currentHuntForTx.id}). This map commemorates the adventure. Outcome: ${finalDbState === HuntState.WON ? 'Treasure Found!' : 'Treasure Not Found'}. Participants: ${adventurersString}.`,
-                    image: getIpfsUrl(newNftImageCid), // Uses ipfs://<CID> or your gateway
+                    name: `Treasure Hunt Map - ${initialHuntDataForNftGeneration.name || `Hunt #${initialHuntDataForNftGeneration.id.substring(0, 6)}`}`,
+                    description: `A unique map NFT for the Treasure Hunt titled "${initialHuntDataForNftGeneration.name || 'Untitled Hunt'}" (ID: ${initialHuntDataForNftGeneration.id}). Outcome: ${initialHuntDataForNftGeneration.state === HuntState.WON ? 'Treasure Found!' : 'Treasure Not Found'}. Participants: ${adventurersString}.`,
+                    image: getIpfsUrl(newNftImageCid),
                     attributes: [
-                        { trait_type: "Hunt ID", value: currentHuntForTx.id },
-                        { trait_type: "Treasure Type", value: currentHuntForTx.treasureType },
-                        { trait_type: "Outcome", value: finalDbState },
+                        { trait_type: "Hunt ID", value: initialHuntDataForNftGeneration.id },
+                        { trait_type: "Treasure Type", value: initialHuntDataForNftGeneration.treasureType },
+                        { trait_type: "Outcome", value: initialHuntDataForNftGeneration.state },
                         { trait_type: "Moves Made", value: totalMovesMadeForNft.toString() },
-                        { trait_type: "Max Moves", value: currentHuntForTx.maxSteps.toString() },
+                        { trait_type: "Max Moves", value: initialHuntDataForNftGeneration.maxSteps.toString() },
                         { trait_type: "Participants", value: participantFids.length.toString() },
                     ],
                 };
-
-                // Pin metadata to Pinata
                 const metadataJsonString = JSON.stringify(nftMetadata);
                 const metadataBlob = new Blob([metadataJsonString], { type: 'application/json' });
                 const metadataName = `hunt-${huntId}-metadata.json`;
                 const metadataFile = new File([metadataBlob], metadataName, { type: 'application/json' });
                 const metadataPinResult = await pinata.upload.public.file(metadataFile);
                 newNftMetadataCid = metadataPinResult.cid;
-                console.log(`[NFT Generation] Pinned metadata to IPFS. CID: ${newNftMetadataCid}`);
+                console.log(`[NFT Generation Post-Tx] Pinned metadata to IPFS. CID: ${newNftMetadataCid}`);
 
-            } catch (nftError) {
-                console.error(`[NFT Generation] Error generating or pinning NFT assets for hunt ${huntId}:`, nftError);
-                // Do not throw here to allow the rest of the submitMove to complete.
-                // CIDs will remain null in the DB, can be retried later or handled manually.
-            }
-        }
-
-        // Update the Hunt record
-        const updateData: Prisma.HuntUpdateInput = {
-            lastMoveUserId: submitterFid,
-            state: finalDbState,
-            endedAt: (finalDbState === HuntState.WON || finalDbState === HuntState.LOST) ? new Date() : null,
-        };
-
-        if (newNftImageCid) {
-            updateData.nftImageIpfsCid = newNftImageCid;
-        }
-        if (newNftMetadataCid) {
-            updateData.nftMetadataIpfsCid = newNftMetadataCid;
-        }
-
-        await tx.hunt.update({
-            where: { id: huntId },
-            data: updateData,
-        });
-        console.log(`Updated Hunt record state to ${finalDbState} and potentially NFT CIDs.`);
-
-        // If hunt is WON, create UserTreasure records for all participants
-        if (finalDbState === HuntState.WON) {
-            const participants = await tx.move.groupBy({
-                by: ['userId'],
-                where: { huntId: huntId },
-                _count: { userId: true }, // Just to make groupBy work, we only need distinct userIds
-            });
-
-            const userTreasureCreateData = participants.map(p => ({
-                userId: p.userId,
-                huntId: huntId,
-                treasureType: currentHuntForTx.treasureType, // Fetched earlier
-            }));
-
-            if (userTreasureCreateData.length > 0) {
-                try {
-                    await tx.userTreasure.createMany({
-                        data: userTreasureCreateData,
-                        skipDuplicates: true, // In case this logic runs multiple times, though transaction should prevent it
+                // If CIDs were generated, update the hunt record in a new DB call
+                if (newNftImageCid && newNftMetadataCid) {
+                    const updatedHuntWithCids = await prisma.hunt.update({
+                        where: { id: huntId },
+                        data: {
+                            nftImageIpfsCid: newNftImageCid,
+                            nftMetadataIpfsCid: newNftMetadataCid,
+                        },
+                        include: { // Include relations for the final returned object
+                            moves: { orderBy: { moveNumber: 'asc' } },
+                            lock: true, // Should be null
+                        }
                     });
-                    console.log(`Created ${userTreasureCreateData.length} UserTreasure records for hunt ${huntId}.`);
-                } catch (userTreasureError) {
-                    // Log the error but don't necessarily throw, 
-                    // as the main hunt/move logic might be more critical to complete.
-                    // The transaction will roll back if this is a critical DB error.
-                    console.error(`Error creating UserTreasure records for hunt ${huntId}:`, userTreasureError);
-                    // Optionally, re-throw if UserTreasure creation is absolutely critical for the transaction to succeed
-                    // throw new Error("Failed to create UserTreasure records."); 
+                    console.log(`[NFT Generation Post-Tx] Successfully saved NFT CIDs to DB for hunt ${huntId}.`);
+                    finalHuntToReturn = updatedHuntWithCids; // Update the object to be returned
+
+                    // Optionally, broadcast another update if CIDs are critical for immediate UI
+                    const finalHuntUpdateWithCids: HuntUpdatePayload = { type: 'hunt_update', details: updatedHuntWithCids };
+                    await broadcastHuntUpdate(huntId, finalHuntUpdateWithCids);
                 }
+            } catch (nftError) {
+                console.error(`[NFT Generation Post-Tx] Error generating or pinning NFT assets for hunt ${huntId}:`, nftError);
+                // Don't let NFT errors fail the entire submitMove if the main transaction was successful.
             }
         }
+         // ****** Post-Transaction NFT Generation END ******
 
-        // Delete the lock now that the move is confirmed onchain and DB updated
-        await tx.huntLock.delete({ where: { huntId } });
-        console.log(`Deleted HuntLock for hunt ${huntId}`);
+        return { success: true, updatedHunt: finalHuntToReturn };
 
-        // Fetch final details for broadcasting
-        const finalDetailsForBroadcast = await tx.hunt.findUnique({
-            where: { id: huntId },
-            include: {
-                moves: { orderBy: { moveNumber: 'asc' } },
-                lock: true, // Lock should be null here
-            },
-        });
-
-        if (!finalDetailsForBroadcast) {
-             throw new Error("Failed to fetch final hunt details after DB update.");
-        }
-
-        return finalDetailsForBroadcast; 
-    }); // End Prisma Transaction
-
-    // 5. Broadcast Updates
-    const lockUpdatePayload: LockUpdatePayload = { type: 'lock_update', lock: null }; // Broadcast lock removal
-    await broadcastHuntUpdate(huntId, lockUpdatePayload);
-    
-    const huntUpdatePayload: HuntUpdatePayload = { type: 'hunt_update', details: result };
-    await broadcastHuntUpdate(huntId, huntUpdatePayload);
-
-    await broadcastHuntsListUpdate();
-
-    return { success: true, updatedHunt: result };
-
-  } catch (error) {
-    console.error(`Error submitting move for hunt ${huntId} by FID ${submitterFid} (tx: ${transactionHash}):`, error);
-    // Avoid deleting lock here, let user retry or handle manually
-    return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred processing the move." };
-  }
+    } catch (error) {
+        console.error(`Error submitting move for hunt ${huntId} by FID ${submitterFid} (tx: ${transactionHash}):`, error);
+        return { success: false, error: error instanceof Error ? error.message : "An unknown error occurred processing the move." };
+    }
 }
 
 /**
