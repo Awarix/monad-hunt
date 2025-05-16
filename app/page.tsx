@@ -20,6 +20,12 @@ export default function HomePage() {
       <p className="text-lg md:text-xl text-[var(--theme-text-secondary)] mb-10 text-center max-w-xl">
         Join collaborative hunts on Monad Testnet. Make moves, follow hints, and mint your map NFT.
       </p>
+      <p className="text-lg md:text-xl text-[var(--theme-text-primary)] mb-10 text-center max-w-xl">
+        I'm still working on this. But I appreciate that you're here, my dear alfa tester :P
+      </p>
+      <p className="text-lg md:text-xl text-[var(--theme-text-primary)] mb-10 text-center max-w-xl">
+        If you have any feedback, please dm me @frontend. 
+      </p>
 
       {/* Button to navigate to the hunts list */}
       <Link href="/hunts">

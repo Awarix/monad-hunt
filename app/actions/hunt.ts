@@ -1,6 +1,6 @@
 'use server';
 
-import { PrismaClient, HuntState, TreasureType, Move, HuntLock, Prisma, Hunt } from '@prisma/client';
+import { PrismaClient, HuntState, TreasureType, Move, HuntLock, Prisma } from '@prisma/client';
 import type { LockUpdatePayload, HuntUpdatePayload, Position } from '@/types';
 import { 
     generateHint, 
