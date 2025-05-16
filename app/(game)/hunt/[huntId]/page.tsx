@@ -115,10 +115,11 @@ export default function HuntPage() {
   // --- NFT Minting State & Hooks ---
   const [claimNftStatus, setClaimNftStatus] = useState<
       'idle' | 'checking_eligibility' | 'eligible' | 'not_eligible' | 'already_minted' | 
-      'fetching_uri' | 'ready_to_mint' | 'submitting_mint' | 'confirming_mint' | 'minted' | 'error'
+      'fetching_uri' | 'ready_to_mint' | 'submitting_mint' | 'confirming_mint' | 'minted' | 'error' | 'fetching_metadata_image'
   >('idle');
   const [claimNftError, setClaimNftError] = useState<string | null>(null);
   const [tokenUri, setTokenUri] = useState<string | null>(null);
+  const [nftImageUrl, setNftImageUrl] = useState<string | null>(null);
 
   // Read hook to check if user has already minted
   const { data: hasMintedData, isLoading: isLoadingHasMinted, error: hasMintedError, refetch: refetchHasMinted } = useReadContract({
@@ -563,7 +564,7 @@ export default function HuntPage() {
       return;
     }
     // Prevent re-entry if already fetching or beyond
-    if (claimNftStatus === 'fetching_uri' || claimNftStatus === 'ready_to_mint' || claimNftStatus === 'submitting_mint' || claimNftStatus === 'confirming_mint' || claimNftStatus === 'minted') {
+    if (claimNftStatus === 'fetching_uri' || claimNftStatus === 'fetching_metadata_image' || claimNftStatus === 'ready_to_mint' || claimNftStatus === 'submitting_mint' || claimNftStatus === 'confirming_mint' || claimNftStatus === 'minted') {
         console.log("handleClaimNft: Already processing or completed fetching URI/minting. Current status:", claimNftStatus);
         return;
     }
@@ -572,15 +573,36 @@ export default function HuntPage() {
     setClaimNftStatus('fetching_uri');
     setClaimNftError(null);
     setTokenUri(null);
+    setNftImageUrl(null);
 
     try {
       // Ensure claimNft is imported from '@/app/actions/hunt'
       const result = await claimNft(huntId, userFid, connectedAddress);
 
       if (result.success && result.tokenUri) {
-        console.log("Successfully fetched tokenURI:", result.tokenUri);
+        console.log("Successfully fetched metadata tokenURI:", result.tokenUri);
         setTokenUri(result.tokenUri);
-        setClaimNftStatus('ready_to_mint');
+        setClaimNftStatus('fetching_metadata_image');
+
+        // Now fetch the metadata content to get the actual image URL
+        try {
+          const metadataResponse = await fetch(result.tokenUri);
+          if (!metadataResponse.ok) {
+            throw new Error(`Failed to fetch metadata: ${metadataResponse.status}`);
+          }
+          const metadataJson = await metadataResponse.json();
+          if (metadataJson.image) {
+            console.log("Successfully fetched image URL from metadata:", metadataJson.image);
+            setNftImageUrl(metadataJson.image);
+            setClaimNftStatus('ready_to_mint');
+          } else {
+            throw new Error("Image URL missing in metadata");
+          }
+        } catch (fetchMetaErr: any) {
+          console.error("Error fetching or parsing metadata for image URL:", fetchMetaErr);
+          setClaimNftError(`Failed to load NFT image from metadata: ${fetchMetaErr.message}`);
+          setClaimNftStatus('error');
+        }
       } else {
         console.error("Backend claimNft failed:", result.error);
         setClaimNftError(result.error || "Failed to prepare NFT claim.");
@@ -593,7 +615,7 @@ export default function HuntPage() {
       setClaimNftError(err instanceof Error ? err.message : "An unknown error occurred.");
       setClaimNftStatus('error');
     }
-  }, [huntId, userFid, connectedAddress, refetchHasMinted]);
+  }, [huntId, userFid, connectedAddress, refetchHasMinted, claimNftStatus]);
 
   // --- NFT Eligibility Check Effect ---
   useEffect(() => {
@@ -996,22 +1018,24 @@ export default function HuntPage() {
         <div className="w-full max-w-lg mx-auto mt-8 mb-6 p-6 bg-[var(--theme-card-bg)] rounded-2xl border-4 border-[var(--theme-border-color)] shadow-xl text-center">
           <h3 className="text-2xl font-bold mb-6 text-[var(--theme-text-primary)] uppercase tracking-wider">Hunt Complete!</h3>
           
-          {/* Display NFT Image if tokenUri is available */} 
-          {tokenUri && ('ready_to_mint' === claimNftStatus || 'submitting_mint' === claimNftStatus || 'confirming_mint' === claimNftStatus || 'minted' === claimNftStatus) && (
+          {/* Display NFT Image if nftImageUrl is available */} 
+          {nftImageUrl && (claimNftStatus === 'ready_to_mint' || claimNftStatus === 'submitting_mint' || claimNftStatus === 'confirming_mint' || claimNftStatus === 'minted') && (
             <div className="my-4 p-3 bg-black/30 rounded-md border border-purple-600/50">
               <Image 
-                src={tokenUri} 
+                src={nftImageUrl}
                 alt={claimNftStatus === 'minted' ? "Minted Hunt Map NFT" : "Hunt Map NFT Preview"} 
                 width={400} 
                 height={210} 
                 className={`w-full max-w-sm mx-auto rounded-md border-2 ${claimNftStatus === 'minted' ? 'border-green-500' : 'border-purple-500'} shadow-xl mb-3`}
                 priority
+                unoptimized
               />
             </div>
           )}
 
           {/* Eligibility Loading */} 
           {claimNftStatus === 'checking_eligibility' && <p className="text-sm text-yellow-400 animate-pulse">Checking NFT eligibility...</p>}
+          {claimNftStatus === 'fetching_metadata_image' && <p className="text-sm text-yellow-400 animate-pulse">Loading NFT image preview...</p>}
 
           {/* Not Eligible */} 
           {claimNftStatus === 'not_eligible' && <p className="text-sm text-gray-400">You did not participate in this hunt, or are otherwise not eligible to claim an NFT.</p>}
@@ -1023,22 +1047,11 @@ export default function HuntPage() {
             </div>
           )}
 
-          {/* Eligible - This button is now removed as handleClaimNft is called automatically */}
-          {/* {claimNftStatus === 'eligible' && hasMintedData === false && (
-              <button
-                  onClick={handleClaimNft}
-                  disabled={isSwitchingChain || chainId !== monadTestnet.id || !isConnected}
-                  className={`${baseButtonStyle} ${cyanButtonBg}`}
-              >
-                 Prepare NFT Details
-              </button>
-          )} */}
-
           {/* Fetching URI state - this will show up automatically after eligibility passes */} 
-          {claimNftStatus === 'fetching_uri' && <p className="text-sm text-yellow-400 animate-pulse">Preparing NFT details...</p>}
+          {claimNftStatus === 'fetching_uri' && <p className="text-sm text-yellow-400 animate-pulse">Preparing NFT details (fetching metadata link)...</p>}
 
           {/* Ready to Mint - Show Mint Button (only if not already minted and URI is ready) */} 
-          {claimNftStatus === 'ready_to_mint' && tokenUri && hasMintedData === false && (
+          {claimNftStatus === 'ready_to_mint' && tokenUri && nftImageUrl && hasMintedData === false && (
               <button 
                   onClick={handleMintNft}
                   disabled={isSwitchingChain || chainId !== monadTestnet.id || !isConnected}

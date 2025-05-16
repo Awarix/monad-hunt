@@ -30,8 +30,13 @@ export function getIpfsUrl(cid: string | null | undefined): string | undefined {
   if (!cid) return undefined;
   
   if (PINATA_GATEWAY_URL) {
-    // Ensure no double slashes if PINATA_GATEWAY_URL ends with one and /ipfs/ starts with one
-    const gatewayBase = PINATA_GATEWAY_URL.endsWith('/') ? PINATA_GATEWAY_URL.slice(0, -1) : PINATA_GATEWAY_URL;
+    let gateway = PINATA_GATEWAY_URL;
+    // Ensure scheme is present
+    if (!gateway.startsWith('http://') && !gateway.startsWith('https://')) {
+      gateway = `https://${gateway}`; // Default to https
+    }
+    // Ensure no double slashes
+    const gatewayBase = gateway.endsWith('/') ? gateway.slice(0, -1) : gateway;
     return `${gatewayBase}/ipfs/${cid}`;
   }
   // Fallback if no custom gateway is set.
