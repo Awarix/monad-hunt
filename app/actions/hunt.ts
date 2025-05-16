@@ -1,6 +1,6 @@
 'use server';
 
-import { PrismaClient, HuntState, TreasureType, Move, HuntLock, Prisma, User } from '@prisma/client';
+import { PrismaClient, HuntState, TreasureType, Move, HuntLock, Prisma } from '@prisma/client';
 import type { LockUpdatePayload, HuntUpdatePayload, Position } from '@/types';
 import { 
     generateHint, 
@@ -17,7 +17,7 @@ import {
     treasureHuntManagerContractProvider, // Import provider instance for event parsing
     huntMapNFTContractProvider // Need provider instance for hasMinted check
 } from '@/lib/ethers';
-import { pinata, getIpfsUrl, PINATA_GATEWAY_URL } from '@/lib/pinata'; // Added Pinata imports
+import { pinata, getIpfsUrl } from '@/lib/pinata'; // Added Pinata imports
 // ---------------------------------
 
 const prisma = new PrismaClient();

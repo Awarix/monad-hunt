@@ -882,7 +882,7 @@ export default function HuntPage() {
   const secondaryButtonBg = "bg-[var(--theme-button-secondary-bg)]"; // For things like "Switch Network"
   const greenButtonBg = "bg-green-500 hover:bg-green-600"; // Keep for specific semantic colors if needed
   const indigoButtonBg = "bg-indigo-500 hover:bg-indigo-600"; // Keep for specific semantic colors if needed
-  const cyanButtonBg = "bg-cyan-500 hover:bg-cyan-600"; // Keep for specific semantic colors if needed
+  // const cyanButtonBg = "bg-cyan-500 hover:bg-cyan-600"; 
 
   // --- Network Check --- 
   if (isConnected && chainId !== monadTestnet.id) {
