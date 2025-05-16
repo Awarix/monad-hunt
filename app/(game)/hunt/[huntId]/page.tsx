@@ -552,69 +552,23 @@ export default function HuntPage() {
       userFid
   ]);
 
-  // --- NFT Eligibility Check Effect ---
-  useEffect(() => {
-      if (isHuntEnded && userFid && connectedAddress && huntDetails?.moves && !isLoadingHasMinted) {
-          console.log("Checking NFT eligibility...");
-          setClaimNftStatus('checking_eligibility');
-          setClaimNftError(null);
-
-          // 1. Check participation
-          const didParticipate = huntDetails.moves.some(move => move.userId === userFid);
-          if (!didParticipate) {
-              console.log("User did not participate.");
-              setClaimNftStatus('not_eligible');
-              return;
-          }
-
-          // 2. Check onchain mint status (using data from useReadContract)
-          if (hasMintedError) {
-              console.error("Error checking hasMinted status:", hasMintedError);
-              setClaimNftStatus('error');
-              // Safely access error message - Attempt 2
-              const errorMsg = hasMintedError instanceof Error ? hasMintedError.message : String(hasMintedError);
-              setClaimNftError(errorMsg);
-              return;
-          }
-
-          if (hasMintedData === true) {
-              console.log("User has already minted.");
-              setClaimNftStatus('already_minted');
-              return;
-          }
-
-          // If participated and hasn't minted
-          console.log("User is eligible to claim NFT.");
-          setClaimNftStatus('eligible'); 
-
-      } else if (isHuntEnded && userFid && connectedAddress && isLoadingHasMinted) {
-          // Still waiting for the read hook result
-          setClaimNftStatus('checking_eligibility');
-      } else if (!isHuntEnded) {
-           // Reset if hunt becomes active again (edge case?)
-           setClaimNftStatus('idle');
-      }
-      // Add dependencies that trigger re-check
-  }, [
-      isHuntEnded, 
-      userFid, 
-      connectedAddress, 
-      huntDetails?.moves, 
-      isLoadingHasMinted, 
-      hasMintedData, 
-      hasMintedError
-  ]);
-  // ----------------------------------
-
-  // --- Backend Action Call: Claim NFT to get URI ---
+    // handleClaimNft is now also called automatically by the eligibility useEffect
   const handleClaimNft = useCallback(async () => {
     if (!huntId || !userFid || !connectedAddress) {
-      setClaimNftError("Missing user or connection details.");
-      setClaimNftStatus('error');
+      // This check is important, especially if called automatically
+      console.warn("handleClaimNft pre-flight check failed: Missing user, hunt, or connection details.");
+      // Avoid setting error status here if it's an auto-call and details just aren't ready yet.
+      // The calling effect should manage its own state progression if this is a transient issue.
+      // If it's a persistent issue, error will be set by the calling context or user trying manually.
       return;
     }
+    // Prevent re-entry if already fetching or beyond
+    if (claimNftStatus === 'fetching_uri' || claimNftStatus === 'ready_to_mint' || claimNftStatus === 'submitting_mint' || claimNftStatus === 'confirming_mint' || claimNftStatus === 'minted') {
+        console.log("handleClaimNft: Already processing or completed fetching URI/minting. Current status:", claimNftStatus);
+        return;
+    }
 
-    console.log("Calling backend claimNft action...");
+    console.log("Calling backend claimNft action (invoked by eligibility check or manually)...");
     setClaimNftStatus('fetching_uri');
     setClaimNftError(null);
     setTokenUri(null);
@@ -640,6 +594,79 @@ export default function HuntPage() {
       setClaimNftStatus('error');
     }
   }, [huntId, userFid, connectedAddress, refetchHasMinted]);
+
+  // --- NFT Eligibility Check Effect ---
+  useEffect(() => {
+      if (isHuntEnded && userFid && connectedAddress && huntDetails?.moves && !isLoadingHasMinted) {
+          // Only proceed if we are in a state where an auto-claim attempt makes sense
+          if (claimNftStatus !== 'idle' && claimNftStatus !== 'checking_eligibility' && claimNftStatus !== 'error') {
+            // If we're already fetching, ready, minting, minted, or in an error state from a PREVIOUS attempt, don't re-trigger.
+            // Error state here implies an error from the auto-fetch itself, or a subsequent step.
+            // User might need to manually retry or refresh if there was an error.
+            // However, if claimNftStatus is 'error' and claimNftError is null, it might be okay to retry.
+            // For now, let's be conservative: only auto-initiate if clearly in an initial phase.
+            return;
+          }
+
+          console.log("Checking NFT eligibility for auto-claim...");
+          // Temporarily set to checking_eligibility if it was idle, to show some UI feedback
+          if (claimNftStatus === 'idle') {
+            setClaimNftStatus('checking_eligibility');
+          }
+          setClaimNftError(null); // Clear previous errors before auto-attempt
+
+          // 1. Check participation
+          const didParticipate = huntDetails.moves.some(move => move.userId === userFid);
+          if (!didParticipate) {
+              console.log("User did not participate.");
+              setClaimNftStatus('not_eligible');
+              return;
+          }
+
+          // 2. Check onchain mint status (using data from useReadContract)
+          if (hasMintedError) {
+              console.error("Error checking hasMinted status:", hasMintedError);
+              setClaimNftStatus('error');
+              const errorMsg = hasMintedError instanceof Error ? hasMintedError.message : String(hasMintedError);
+              setClaimNftError(errorMsg);
+              return;
+          }
+
+          if (hasMintedData === true) {
+              console.log("User has already minted.");
+              setClaimNftStatus('already_minted');
+              return;
+          }
+
+          // If participated and hasn't minted, and we're in a state to auto-claim:
+          console.log("User is eligible, automatically calling handleClaimNft(). Current status:", claimNftStatus);
+          // Directly call handleClaimNft instead of setting to 'eligible' and waiting for a button click
+          handleClaimNft();
+
+      } else if (isHuntEnded && userFid && connectedAddress && isLoadingHasMinted && claimNftStatus === 'idle') {
+          // Still waiting for the read hook result, ensure 'checking_eligibility' is shown
+          setClaimNftStatus('checking_eligibility');
+      } else if (!isHuntEnded && claimNftStatus !== 'idle') {
+           // Reset if hunt becomes active again (edge case?)
+           setClaimNftStatus('idle');
+           setTokenUri(null); // Clear token URI if hunt is no longer ended
+           setClaimNftError(null);
+      }
+  }, [
+      isHuntEnded,
+      userFid,
+      connectedAddress,
+      huntDetails?.moves,
+      isLoadingHasMinted,
+      hasMintedData,
+      hasMintedError,
+      claimNftStatus, // Added to allow reaction to status changes for auto-claim logic
+      handleClaimNft // Added because it's called in the effect
+  ]);
+  // ----------------------------------
+
+  // --- Backend Action Call: Claim NFT to get URI ---
+
 
   // --- Wagmi Transaction Call: Mint NFT ---
   const handleMintNft = useCallback(async () => {
@@ -996,18 +1023,18 @@ export default function HuntPage() {
             </div>
           )}
 
-          {/* Eligible - Show Claim Button (only if not already minted) */} 
-          {claimNftStatus === 'eligible' && hasMintedData === false && (
-              <button 
+          {/* Eligible - This button is now removed as handleClaimNft is called automatically */}
+          {/* {claimNftStatus === 'eligible' && hasMintedData === false && (
+              <button
                   onClick={handleClaimNft}
                   disabled={isSwitchingChain || chainId !== monadTestnet.id || !isConnected}
                   className={`${baseButtonStyle} ${cyanButtonBg}`}
               >
                  Prepare NFT Details
               </button>
-          )}
+          )} */}
 
-          {/* Fetching URI state */} 
+          {/* Fetching URI state - this will show up automatically after eligibility passes */} 
           {claimNftStatus === 'fetching_uri' && <p className="text-sm text-yellow-400 animate-pulse">Preparing NFT details...</p>}
 
           {/* Ready to Mint - Show Mint Button (only if not already minted and URI is ready) */} 
