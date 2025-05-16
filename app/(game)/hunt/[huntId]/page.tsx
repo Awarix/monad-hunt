@@ -598,9 +598,9 @@ export default function HuntPage() {
           } else {
             throw new Error("Image URL missing in metadata");
           }
-        } catch (fetchMetaErr: any) {
+        } catch (fetchMetaErr: unknown) {
           console.error("Error fetching or parsing metadata for image URL:", fetchMetaErr);
-          setClaimNftError(`Failed to load NFT image from metadata: ${fetchMetaErr.message}`);
+          setClaimNftError(`Failed to load NFT image from metadata: ${fetchMetaErr instanceof Error ? fetchMetaErr.message : String(fetchMetaErr)}`);
           setClaimNftStatus('error');
         }
       } else {
