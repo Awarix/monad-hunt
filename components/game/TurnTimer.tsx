@@ -25,8 +25,8 @@ const TurnTimer: React.FC<TurnTimerProps> = ({ expiresAt, onExpire }) => {
     if (!expiresAt) return 0;
     const now = new Date();
     const diff = expiresAt.getTime() - now.getTime();
-    // Subtract 15 seconds (15000 ms) for the display buffer
-    const displayDiff = diff - (15 * 1000); 
+    // Subtract 1 second (1000 ms) for a small display buffer, ensuring client calls onExpire near actual expiry
+    const displayDiff = diff - (1 * 1000); 
     return Math.max(0, Math.floor(displayDiff / 1000)); // Ensure non-negative
   }, [expiresAt]);
 
