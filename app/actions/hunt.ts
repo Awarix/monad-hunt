@@ -571,8 +571,8 @@ export async function submitMove(
                     if (!imageResponse.ok) {
                         throw new Error(`Failed to fetch OG image: ${imageResponse.status} ${imageResponse.statusText}`);
                     }
-                } catch (fetchError: any) {
-                    if (fetchError.name === 'AbortError') {
+                } catch (fetchError: unknown) {
+                    if (fetchError instanceof Error && fetchError.name === 'AbortError') {
                         console.error(`[NFT Generation Post-Tx] Fetching OG image timed out after ${FETCH_TIMEOUT_MS / 1000}s for URL: ${ogImageUrl}`);
                     } else {
                         console.error(`[NFT Generation Post-Tx] Error fetching OG image for URL: ${ogImageUrl}`, fetchError);
