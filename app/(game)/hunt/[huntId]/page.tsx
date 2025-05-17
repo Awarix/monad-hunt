@@ -319,6 +319,19 @@ export default function HuntPage() {
     const result = (() => {
         if (!huntDetails || !currentUser || huntDetails.state !== HuntState.ACTIVE) return false;
         const currentLock = huntDetails.lock;
+        // --- DEBUG LOGGING ---
+        console.log('[canAttemptMove Check]', {
+            huntId: huntDetails?.id,
+            userId: currentUser?.fid,
+            huntState: huntDetails?.state,
+            lockExists: !!currentLock,
+            lockPlayerFid: currentLock?.playerFid,
+            lockExpiresAt: currentLock?.expiresAt,
+            isCurrentUserLockHolder: currentLock?.playerFid === currentUser?.fid,
+            isLockActive: currentLock ? new Date(currentLock.expiresAt) > new Date() : false,
+            now: new Date()
+        });
+        // --- END DEBUG LOGGING ---
         if (currentLock && currentLock.playerFid === currentUser.fid && new Date(currentLock.expiresAt) > new Date()) {
             return true;
         }
@@ -334,6 +347,21 @@ export default function HuntPage() {
         if (huntDetails.lastMoveUserId === currentUser.fid) return false;
         
         const currentLock = huntDetails.lock;
+        // --- DEBUG LOGGING ---
+        // console.log('[canClaimTurn Check]', {
+        //     huntId: huntDetails?.id,
+        //     userId: currentUser?.fid,
+        //     huntState: huntDetails?.state,
+        //     lastMoveFid: huntDetails?.lastMoveUserId,
+        //     lockExists: !!currentLock,
+        //     lockPlayerFid: currentLock?.playerFid,
+        //     lockExpiresAt: currentLock?.expiresAt,
+        //     isCurrentUserLockHolder: currentLock?.playerFid === currentUser?.fid,
+        //     isLockExpired: currentLock ? new Date(currentLock.expiresAt) <= new Date() : undefined,
+        //     isLockActiveForOther: currentLock && currentLock.playerFid !== currentUser?.fid && new Date(currentLock.expiresAt) > new Date(),
+        //     now: new Date()
+        // });
+        // --- END DEBUG LOGGING ---
         if (currentLock && currentLock.playerFid !== currentUser.fid && new Date(currentLock.expiresAt) > new Date()) {
             return false;
         }
