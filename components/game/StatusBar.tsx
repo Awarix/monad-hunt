@@ -23,12 +23,22 @@ const getStatusMessage = (
     if (status === HuntState.LOST) return "Hunt Complete: Max moves reached.";
 
     if (currentLock) {
-        if (currentLock.playerFid === userFid && new Date(currentLock.expiresAt) > new Date()) {
-            return "Your Turn! Make a move.";
-        } else {
-            return `Locked by FID ${currentLock.playerFid}. Waiting for move...`;
+        const isLockCurrentlyActive = new Date(currentLock.expiresAt) > new Date();
+        if (currentLock.playerFid === userFid) { // It's my lock
+            if (isLockCurrentlyActive) {
+                return "Your Turn! Make a move."; // My active lock
+            } else {
+                return "Your lock expired! Ready to join."; // My expired lock
+            }
+        } else { // It's someone else's lock
+            if (isLockCurrentlyActive) {
+                return `Locked by FID ${currentLock.playerFid}. Waiting for move...`; // Other's active lock
+            } else {
+                // Other's lock is also expired
+                return `Lock by FID ${currentLock.playerFid} expired. Ready to join.`;
+            }
         }
-    } else {
+    } else { // No lock object
         if (userFid === lastMoveUserId) {
             return "You made the last move. Waiting for others...";
         } else {
