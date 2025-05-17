@@ -821,13 +821,29 @@ export default function HuntPage() {
         });
         console.log("Mint transaction submitted to wallet, hash:", hash);
         // Status moves to 'confirming_mint' via effect below
-    } catch {
-        console.error("Error submitting mint transaction to wallet:");
-        const errorMsg = "Failed to submit mint transaction via wallet."
-        setClaimNftError(errorMsg);
+    } catch (err: unknown) { // Capture and log the specific error
+        console.error("Error submitting mint transaction to wallet:", err); // Log the actual error object
+        let errorMsg = "Failed to submit mint transaction via wallet.";
+        if (err instanceof Error) {
+            errorMsg = err.message; // Use the error's message if available
+        }
+        // Check if the error indicates user rejection specifically
+        // Note: Wagmi often wraps errors, so direct string check might be fragile.
+        // Checking for a specific error code or name is better if available.
+        // For now, we rely on the generic message and the console log.
+        if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('user rejected')) {
+            setClaimNftError("Transaction rejected in wallet.");
+        } else {
+            setClaimNftError(errorMsg);
+        }
         setClaimNftStatus('error'); 
         // Reset to allow retry? Maybe back to 'ready_to_mint' or 'eligible'?
-        setClaimNftStatus('eligible'); // Go back to eligible state on wallet error
+        // Let's go back to 'ready_to_mint' to allow an explicit retry without re-fetching URI
+        if (tokenUri) { // Only if URI was successfully fetched before
+             setClaimNftStatus('ready_to_mint');
+        } else {
+             setClaimNftStatus('eligible'); // Or eligible if URI was not even there
+        }
     }
   }, [tokenUri, mintNftAsync, nftContractAddress, claimNftStatus, numericOnchainHuntIdForFrontend, connectedAddress]);
 
