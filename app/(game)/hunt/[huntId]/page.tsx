@@ -328,7 +328,7 @@ export default function HuntPage() {
   }, [lastMove]); 
   const hints = huntDetails?.moves?.map(move => move.hintGenerated) || [];
   const lastMoveUserId = huntDetails?.lastMoveUserId;
-  const currentLock = huntDetails?.lock;
+  // const currentLock = huntDetails?.lock;
   const userFid = currentUser?.fid;
 
   // const canUserClaimTurn = 
