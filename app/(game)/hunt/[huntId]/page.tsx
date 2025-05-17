@@ -348,19 +348,19 @@ export default function HuntPage() {
         
         const currentLock = huntDetails.lock;
         // --- DEBUG LOGGING ---
-        // console.log('[canClaimTurn Check]', {
-        //     huntId: huntDetails?.id,
-        //     userId: currentUser?.fid,
-        //     huntState: huntDetails?.state,
-        //     lastMoveFid: huntDetails?.lastMoveUserId,
-        //     lockExists: !!currentLock,
-        //     lockPlayerFid: currentLock?.playerFid,
-        //     lockExpiresAt: currentLock?.expiresAt,
-        //     isCurrentUserLockHolder: currentLock?.playerFid === currentUser?.fid,
-        //     isLockExpired: currentLock ? new Date(currentLock.expiresAt) <= new Date() : undefined,
-        //     isLockActiveForOther: currentLock && currentLock.playerFid !== currentUser?.fid && new Date(currentLock.expiresAt) > new Date(),
-        //     now: new Date()
-        // });
+        console.log('[canClaimTurn Check]', {
+            huntId: huntDetails?.id,
+            userId: currentUser?.fid,
+            huntState: huntDetails?.state,
+            lastMoveFid: huntDetails?.lastMoveUserId,
+            lockExists: !!currentLock,
+            lockPlayerFid: currentLock?.playerFid,
+            lockExpiresAt: currentLock?.expiresAt,
+            isCurrentUserLockHolder: currentLock?.playerFid === currentUser?.fid,
+            isLockExpired: currentLock ? new Date(currentLock.expiresAt) <= new Date() : undefined,
+            isLockActiveForOther: currentLock && currentLock.playerFid !== currentUser?.fid && new Date(currentLock.expiresAt) > new Date(),
+            now: new Date()
+        });
         // --- END DEBUG LOGGING ---
         if (currentLock && currentLock.playerFid !== currentUser.fid && new Date(currentLock.expiresAt) > new Date()) {
             return false;
