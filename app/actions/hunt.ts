@@ -996,8 +996,11 @@ export async function notifyLockExpiredByClient(huntId: string, currentExpectedP
     const now = new Date();
     const lockExpiresAt = new Date(lock.expiresAt);
 
-    if (lockExpiresAt <= now) {
-      console.log(`[notifyLockExpiredByClient] Lock for huntId: ${huntId} confirmed expired (Expires: ${lockExpiresAt}, Now: ${now}). Deleting.`);
+    // Consider expired if current time is within 500ms of actual expiry, or past it.
+    // This accounts for minor client/server clock drift or call latency.
+    const EXPIRY_TOLERANCE_MS = 500;
+    if (now.getTime() >= lockExpiresAt.getTime() - EXPIRY_TOLERANCE_MS) {
+      console.log(`[notifyLockExpiredByClient] Lock for huntId: ${huntId} considered expired (Expires: ${lockExpiresAt.toISOString()}, Now: ${now.toISOString()}, Tolerance: ${EXPIRY_TOLERANCE_MS}ms). Deleting.`);
       await prisma.huntLock.delete({
         where: { huntId },
       });
@@ -1006,7 +1009,7 @@ export async function notifyLockExpiredByClient(huntId: string, currentExpectedP
       await broadcastHuntsListUpdate(); // Also update the list view
       return { success: true, lockCleared: true };
     } else {
-      console.log(`[notifyLockExpiredByClient] Lock for huntId: ${huntId} is not yet expired (Expires: ${lockExpiresAt}, Now: ${now}). No action taken.`);
+      console.log(`[notifyLockExpiredByClient] Lock for huntId: ${huntId} is not yet expired (Expires: ${lockExpiresAt.toISOString()}, Now: ${now.toISOString()}). No action taken.`);
       // Even if not expired by server's clock, if client *thinks* it is,
       // it's good to send current state so client can re-sync if needed.
       // However, to prevent spamming, only do this if there's a significant discrepancy or handle carefully.
