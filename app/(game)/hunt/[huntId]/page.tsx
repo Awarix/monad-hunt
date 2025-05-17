@@ -337,12 +337,32 @@ export default function HuntPage() {
   //   userFid !== lastMoveUserId && 
   //   (!currentLock || new Date() > new Date(currentLock.expiresAt)); // Lock doesn't exist or is expired
 
+  const userFidForLockCheck = currentUser?.fid; // Use a local var for clarity in logs
+  const currentLockForCheck = huntDetails?.lock;
+  const isHuntActiveForLockCheck = huntDetails?.state === HuntState.ACTIVE;
+
+  console.log('[doesUserHoldActiveLock Calculation Inputs]', {
+    isHuntActiveForLockCheck,
+    userFidForLockCheck,
+    currentLockExists: !!currentLockForCheck,
+    currentLockPlayerFid: currentLockForCheck?.playerFid,
+    currentLockExpiresAt: currentLockForCheck?.expiresAt,
+    isLockTimeValid: currentLockForCheck?.expiresAt ? new Date() < new Date(currentLockForCheck.expiresAt) : undefined,
+  });
+
   const doesUserHoldActiveLock = 
-    isHuntActive && 
-    userFid && 
-    currentLock && 
-    currentLock.playerFid === userFid && 
-    new Date() < new Date(currentLock.expiresAt);
+    isHuntActiveForLockCheck && 
+    userFidForLockCheck && 
+    currentLockForCheck && 
+    currentLockForCheck.playerFid === userFidForLockCheck && 
+    (currentLockForCheck.expiresAt && new Date() < new Date(currentLockForCheck.expiresAt));
+
+  console.log('[doesUserHoldActiveLock Calculation Result]', doesUserHoldActiveLock);
+
+  // Log when doesUserHoldActiveLock changes, to see what StatusBar would receive
+  useEffect(() => {
+    console.log('[StatusBar Prop Effect] doesUserHoldActiveLock value changed to:', doesUserHoldActiveLock);
+  }, [doesUserHoldActiveLock]);
 
   const canAttemptMove = useMemo(() => {
     const result = (() => {
