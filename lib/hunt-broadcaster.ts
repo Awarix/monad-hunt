@@ -29,6 +29,7 @@ function sanitizeHuntDetailsForClient(details: HuntDetails | null): Partial<Hunt
   }
   // For completed hunts (WON, LOST), all details can be returned (excluding salt for now)
   const { salt, ...safeDetails } = details;
+  console.log('salt', salt);
   return safeDetails;
 }
 // --- End of copied sanitizeHuntDetailsForClient ---

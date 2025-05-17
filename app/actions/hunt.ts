@@ -37,6 +37,7 @@ function sanitizeHuntDetailsForClient(details: HuntDetails | null): Partial<Hunt
   // For completed hunts (WON, LOST), all details can be returned (salt might still be sensitive depending on use)
   // For now, let's also exclude salt from client responses unless explicitly needed for something like reveal verification later.
   const { salt, ...safeDetails } = details;
+  console.log('salt', salt);
   return safeDetails;
 }
 // --------------------------------------------------------------------
