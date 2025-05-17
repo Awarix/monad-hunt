@@ -963,4 +963,64 @@ export async function admin_deleteAllHunts(): Promise<{ success: boolean; messag
     console.error("[ADMIN ACTION] Error deleting all hunt data:", errorMsg);
     return { success: false, message: "Failed to delete all hunt data.", error: errorMsg };
   }
+}
+
+/**
+ * Notifies the server that a client's turn lock timer has expired.
+ * The server verifies the lock, deletes it if truly expired, and broadcasts the update.
+ */
+export async function notifyLockExpiredByClient(huntId: string, currentExpectedPlayerFid: number): Promise<{ success: boolean, error?: string, lockCleared?: boolean }> {
+  try {
+    console.log(`[notifyLockExpiredByClient] Received notification for huntId: ${huntId}, expectedPlayerFid: ${currentExpectedPlayerFid}`);
+    const lock = await prisma.huntLock.findUnique({
+      where: { huntId },
+    });
+
+    if (!lock) {
+      console.log(`[notifyLockExpiredByClient] No lock found for huntId: ${huntId}. Already cleared or never existed.`);
+      // No lock to clear, consider it a success from the client's perspective of wanting it cleared.
+      // Potentially, another client or process cleared it first.
+      // Ensure an update is broadcast if this client might have missed it.
+      await broadcastHuntUpdate(huntId, { type: 'lock_update', lock: null });
+      await broadcastHuntsListUpdate();
+      return { success: true, lockCleared: false, error: "No lock found to clear." };
+    }
+
+    // Verify the lock belongs to the player whose timer expired.
+    // This is a sanity check, though the main check is the expiry time.
+    if (lock.playerFid !== currentExpectedPlayerFid) {
+        console.warn(`[notifyLockExpiredByClient] Lock for huntId ${huntId} is held by FID ${lock.playerFid}, but notification came from FID ${currentExpectedPlayerFid}. Ignoring.`);
+        return { success: false, error: "Lock not held by the reporting player.", lockCleared: false };
+    }
+
+    const now = new Date();
+    const lockExpiresAt = new Date(lock.expiresAt);
+
+    if (lockExpiresAt <= now) {
+      console.log(`[notifyLockExpiredByClient] Lock for huntId: ${huntId} confirmed expired (Expires: ${lockExpiresAt}, Now: ${now}). Deleting.`);
+      await prisma.huntLock.delete({
+        where: { huntId },
+      });
+      console.log(`[notifyLockExpiredByClient] Lock deleted for huntId: ${huntId}. Broadcasting null lock update.`);
+      await broadcastHuntUpdate(huntId, { type: 'lock_update', lock: null });
+      await broadcastHuntsListUpdate(); // Also update the list view
+      return { success: true, lockCleared: true };
+    } else {
+      console.log(`[notifyLockExpiredByClient] Lock for huntId: ${huntId} is not yet expired (Expires: ${lockExpiresAt}, Now: ${now}). No action taken.`);
+      // Even if not expired by server's clock, if client *thinks* it is,
+      // it's good to send current state so client can re-sync if needed.
+      // However, to prevent spamming, only do this if there's a significant discrepancy or handle carefully.
+      // For now, just returning current state if client was premature.
+      // Consider if broadcasting current lock state is beneficial or could lead to loops.
+      // For now, let's not broadcast here to avoid potential race conditions if client calls this rapidly.
+      return { success: false, error: "Lock not yet expired on server.", lockCleared: false };
+    }
+  } catch (error) {
+    console.error(`[notifyLockExpiredByClient ERROR] Error processing lock expiry for huntId ${huntId}:`, error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : "Unknown server error.",
+      lockCleared: false
+    };
+  }
 } 

@@ -1,10 +1,12 @@
 import React from 'react';
 import TurnTimer from './TurnTimer';
 import { HuntState } from '@prisma/client';
+import { notifyLockExpiredByClient } from '@/app/actions/hunt';
+import type { HuntLock } from '@prisma/client';
 
 interface StatusBarProps {
   status: HuntState;
-  currentLock: { huntId: string; playerFid: number; expiresAt: Date } | null;
+  currentLock: HuntLock | null;
   userFid: number | undefined;
   lastMoveUserId: number | undefined;
   txStatus: 'idle' | 'submitting' | 'confirming' | 'updating_db' | 'error' | 'success';
@@ -74,6 +76,33 @@ const StatusBar: React.FC<StatusBarProps> = ({
 
   const isMyLockedTurn = currentLock && currentLock.playerFid === userFid && new Date(currentLock.expiresAt).getTime() > new Date().getTime();
 
+  const handleTimerExpire = async () => {
+    console.log('[StatusBar] Timer expired callback triggered.');
+    if (currentLock && userFid && currentLock.playerFid === userFid) {
+      console.log(`[StatusBar] Current user (FID: ${userFid}) holds the expired lock for hunt ${currentLock.huntId}. Notifying server.`);
+      try {
+        const result = await notifyLockExpiredByClient(currentLock.huntId, userFid);
+        if (result.success && result.lockCleared) {
+          console.log(`[StatusBar] Server confirmed lock cleared for hunt ${currentLock.huntId}.`);
+          // UI should update via SSE, no direct state change needed here for the lock itself.
+        } else if (result.success && !result.lockCleared && result.error === "No lock found to clear.") {
+          console.log(`[StatusBar] Server reported no lock found to clear for hunt ${currentLock.huntId} (likely already cleared).`);
+        } else if (!result.success && result.error === "Lock not yet expired on server.") {
+          console.warn(`[StatusBar] Server reported lock for hunt ${currentLock.huntId} not yet expired. Client timer might be slightly ahead or server clock behind.`);
+          // This could happen if client timer buffer causes it to expire "visually"
+          // before server agrees. SSE should eventually correct the state if server hasn't broadcasted null yet.
+        }
+        else {
+          console.error(`[StatusBar] Failed to notify server of lock expiry for hunt ${currentLock.huntId}:`, result.error);
+        }
+      } catch (error) {
+        console.error(`[StatusBar] Exception calling notifyLockExpiredByClient for hunt ${currentLock.huntId}:`, error);
+      }
+    } else {
+      console.log('[StatusBar] Timer expired, but current user does not hold the lock or lock info is missing. No action taken.');
+    }
+  };
+
   console.log('[StatusBar Debug] isMyLockedTurn:', isMyLockedTurn, 'txStatus:', txStatus, 'currentLock:', currentLock, 'userFid:', userFid, 'currentLock?.expiresAt type:', typeof currentLock?.expiresAt, 'isDate:', currentLock?.expiresAt instanceof Date);
 
 //   const claimButtonStyle = `
@@ -111,7 +140,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
       
       {/* Show Timer only if it's my locked turn and no tx is in progress */}
       {isMyLockedTurn && txStatus === 'idle' && currentLock && currentLock.expiresAt && (
-        <TurnTimer expiresAt={currentLock.expiresAt} />
+        <TurnTimer expiresAt={currentLock.expiresAt} onExpire={handleTimerExpire} />
       )}
     </div>
   );
