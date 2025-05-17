@@ -22,6 +22,24 @@ import { pinata, getIpfsUrl } from '@/lib/pinata'; // Added Pinata imports
 
 const prisma = new PrismaClient();
 
+// --- Helper function to sanitize hunt details for client responses ---
+function sanitizeHuntDetailsForClient(details: HuntDetails | null): Partial<HuntDetails> | null {
+  if (!details) return null;
+
+  // If the hunt is active, pending, or failed, hide treasure position
+  if (details.state === HuntState.ACTIVE || 
+      details.state === HuntState.PENDING_CREATION || 
+      details.state === HuntState.FAILED_CREATION) {
+    const { treasurePositionX, treasurePositionY, salt, ...rest } = details; // Exclude sensitive fields
+    return rest;
+  }
+  // For completed hunts (WON, LOST), all details can be returned (salt might still be sensitive depending on use)
+  // For now, let's also exclude salt from client responses unless explicitly needed for something like reveal verification later.
+  const { salt, ...safeDetails } = details;
+  return safeDetails;
+}
+// --------------------------------------------------------------------
+
 // --- Types for Return Values (Consider moving to types/index.ts if reused) ---
 export interface ListedHunt {
   id: string;
@@ -46,6 +64,7 @@ export interface HuntDetails {
   onchainHuntId?: string | null;
   nftImageIpfsCid?: string | null; // Added for return type
   nftMetadataIpfsCid?: string | null; // Added for return type
+  salt?: string | null; // Added for return type
   moves: Move[];
   lock: HuntLock | null;
 }
@@ -220,9 +239,9 @@ export async function listHunts(): Promise<ListedHunt[]> {
 /**
  * Gets the full details for a specific hunt, including all moves and lock status.
  */
-export async function getHuntDetails(huntId: string): Promise<HuntDetails | null> {
+export async function getHuntDetails(huntId: string): Promise<Partial<HuntDetails> | null> {
   try {
-    const huntDetails: HuntDetails | null = await prisma.hunt.findUnique({
+    const huntDetailsDb: HuntDetails | null = await prisma.hunt.findUnique({
       where: { id: huntId },
       include: {
         moves: {
@@ -234,7 +253,7 @@ export async function getHuntDetails(huntId: string): Promise<HuntDetails | null
       },
     });
 
-    return huntDetails;
+    return sanitizeHuntDetailsForClient(huntDetailsDb);
   } catch (error) {
     console.error(`Error fetching hunt details for ${huntId}:`, error);
     return null;
@@ -643,7 +662,7 @@ export async function submitMove(
         }
          // ****** Post-Transaction NFT Generation END ******
 
-        return { success: true, updatedHunt: finalHuntToReturn };
+        return { success: true, updatedHunt: sanitizeHuntDetailsForClient(finalHuntToReturn) as HuntDetails };
 
     } catch (error) {
         console.error(`Error submitting move for hunt ${huntId} by FID ${submitterFid} (tx: ${transactionHash}):`, error);
@@ -976,8 +995,10 @@ export async function notifyLockExpiredByClient(huntId: string, currentExpectedP
       where: { huntId },
     });
 
+    const serverNow = new Date(); // Capture server's current time at the start of critical logic
+
     if (!lock) {
-      console.log(`[notifyLockExpiredByClient] No lock found for huntId: ${huntId}. Already cleared or never existed.`);
+      console.log(`[notifyLockExpiredByClient] No lock found for huntId: ${huntId} at ${serverNow.toISOString()}. Already cleared or never existed.`);
       // No lock to clear, consider it a success from the client's perspective of wanting it cleared.
       // Potentially, another client or process cleared it first.
       // Ensure an update is broadcast if this client might have missed it.
@@ -987,20 +1008,23 @@ export async function notifyLockExpiredByClient(huntId: string, currentExpectedP
     }
 
     // Verify the lock belongs to the player whose timer expired.
-    // This is a sanity check, though the main check is the expiry time.
     if (lock.playerFid !== currentExpectedPlayerFid) {
-        console.warn(`[notifyLockExpiredByClient] Lock for huntId ${huntId} is held by FID ${lock.playerFid}, but notification came from FID ${currentExpectedPlayerFid}. Ignoring.`);
+        console.warn(`[notifyLockExpiredByClient] Lock for huntId ${huntId} is held by FID ${lock.playerFid}, but notification came from FID ${currentExpectedPlayerFid} at ${serverNow.toISOString()}. Ignoring.`);
         return { success: false, error: "Lock not held by the reporting player.", lockCleared: false };
     }
 
-    const now = new Date();
     const lockExpiresAt = new Date(lock.expiresAt);
+    const timeDifferenceMs = lockExpiresAt.getTime() - serverNow.getTime();
+
+    console.log(`[notifyLockExpiredByClient DEBUG] Hunt: ${huntId}`);
+    console.log(`  Server Current Time: ${serverNow.toISOString()} (${serverNow.getTime()}ms)`);
+    console.log(`  Lock Expiry Time:    ${lockExpiresAt.toISOString()} (${lockExpiresAt.getTime()}ms)`);
+    console.log(`  Difference (Expires - Now): ${timeDifferenceMs}ms`);
 
     // Consider expired if current time is within 500ms of actual expiry, or past it.
-    // This accounts for minor client/server clock drift or call latency.
     const EXPIRY_TOLERANCE_MS = 500;
-    if (now.getTime() >= lockExpiresAt.getTime() - EXPIRY_TOLERANCE_MS) {
-      console.log(`[notifyLockExpiredByClient] Lock for huntId: ${huntId} considered expired (Expires: ${lockExpiresAt.toISOString()}, Now: ${now.toISOString()}, Tolerance: ${EXPIRY_TOLERANCE_MS}ms). Deleting.`);
+    if (serverNow.getTime() >= lockExpiresAt.getTime() - EXPIRY_TOLERANCE_MS) {
+      console.log(`[notifyLockExpiredByClient] Lock for huntId: ${huntId} considered EXPIRED (Tolerance: ${EXPIRY_TOLERANCE_MS}ms). Deleting.`);
       await prisma.huntLock.delete({
         where: { huntId },
       });
@@ -1009,14 +1033,12 @@ export async function notifyLockExpiredByClient(huntId: string, currentExpectedP
       await broadcastHuntsListUpdate(); // Also update the list view
       return { success: true, lockCleared: true };
     } else {
-      console.log(`[notifyLockExpiredByClient] Lock for huntId: ${huntId} is not yet expired (Expires: ${lockExpiresAt.toISOString()}, Now: ${now.toISOString()}). No action taken.`);
-      // Even if not expired by server's clock, if client *thinks* it is,
-      // it's good to send current state so client can re-sync if needed.
-      // However, to prevent spamming, only do this if there's a significant discrepancy or handle carefully.
-      // For now, just returning current state if client was premature.
-      // Consider if broadcasting current lock state is beneficial or could lead to loops.
-      // For now, let's not broadcast here to avoid potential race conditions if client calls this rapidly.
-      return { success: false, error: "Lock not yet expired on server.", lockCleared: false };
+      console.log(`[notifyLockExpiredByClient] Lock for huntId: ${huntId} considered NOT YET EXPIRED (Tolerance: ${EXPIRY_TOLERANCE_MS}ms). No action taken.`);
+      return { 
+        success: false, 
+        error: `Lock not yet expired on server. ExpiresAt: ${lockExpiresAt.toISOString()}, ServerNow: ${serverNow.toISOString()}, Diff: ${timeDifferenceMs}ms`, 
+        lockCleared: false 
+      };
     }
   } catch (error) {
     console.error(`[notifyLockExpiredByClient ERROR] Error processing lock expiry for huntId ${huntId}:`, error);

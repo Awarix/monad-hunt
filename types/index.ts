@@ -51,8 +51,8 @@ export interface LockUpdatePayload {
  */
 export interface HuntUpdatePayload {
   type: 'hunt_update';
-  // Reuse the detailed type defined in Server Actions
-  details: ActionHuntDetails; 
+  // Reuse the detailed type defined in Server Actions, allowing partial for sanitized data
+  details: Partial<ActionHuntDetails> | null; 
 }
 
 /**

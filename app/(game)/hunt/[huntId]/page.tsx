@@ -209,7 +209,7 @@ export default function HuntPage() {
     try {
       const details = await getHuntDetails(huntId);
       if (details) {
-        setHuntDetails(details);
+        setHuntDetails(details as HuntDetails);
       } else {
         setPageError(`Hunt with ID ${huntId} not found.`);
         setHuntDetails(null);
@@ -251,12 +251,41 @@ export default function HuntPage() {
                 const payload = parsedData as HuntChannelPayload; 
 
                 if (payload.type === 'hunt_update') {
-                    console.log("SSE: Applying full hunt update");
-                    const updatedDetails = payload.details;
-                    if (updatedDetails.lock && typeof updatedDetails.lock.expiresAt === 'string') {
-                        updatedDetails.lock.expiresAt = new Date(updatedDetails.lock.expiresAt);
+                    const updatedDetailsPartial = payload.details as Partial<HuntDetails> | null;
+                    console.log('SSE: Applying hunt update', updatedDetailsPartial);
+
+                    if (updatedDetailsPartial && updatedDetailsPartial.id === huntId) {
+                        setHuntDetails(prevDetails => {
+                            if (!prevDetails) {
+                                // This case should ideally not happen if we have details to update for the current huntId
+                                // but if it does, we can only set if the partial is a full object (less likely now)
+                                // For safety, and given sanitization, it's better to ensure full objects or handle null.
+                                // Since updatedDetailsPartial can be null OR partial, we must be careful.
+                                // If prevDetails is null, and updatedDetailsPartial is also null, result is null.
+                                // If prevDetails is null, and updatedDetailsPartial is partial, this is tricky.
+                                // Let's assume for now that an update for *our* huntId means we should have *some* prevDetails.
+                                console.warn("SSE hunt_update: prevDetails is null, but received update for current huntId. This is unexpected.");
+                                // Attempt to set if it looks like a full object, otherwise null to be safe.
+                                // This might need more robust handling if full objects are expected after null state.
+                                return updatedDetailsPartial as HuntDetails; // Risky cast, relies on update being full
+                            }
+                            // If updatedDetailsPartial is null, it means the hunt details were cleared (e.g. deleted - less likely for 'hunt_update')
+                            // or the sanitizer returned null for some reason. In this case, we'd set to null.
+                            if (updatedDetailsPartial === null) return null;
+
+                            // Merge partial update with previous full details
+                            return { ...prevDetails, ...updatedDetailsPartial };
+                        });
+                    } else if (updatedDetailsPartial) {
+                         console.log(`SSE: Received hunt_update for a different huntId (${updatedDetailsPartial.id}). Current is ${huntId}. Ignoring.`);
+                    } else {
+                        // updatedDetailsPartial is null, and it's not for our huntId (or id is missing)
+                        // This could happen if a generic null update was broadcast and we are not filtering by ID before this point.
+                        // If it was meant for our hunt (e.g. lock removed, resulting in details becoming null due to sanitization rule),
+                        // we might want to set our local huntDetails to null if the ID matched.
+                        // For now, if ID doesn't match or is missing, and details are null, do nothing.
+                        console.log('SSE: Received null hunt_update details, possibly for another hunt or no ID. Ignoring.');
                     }
-                    setHuntDetails(updatedDetails); 
                 } else if (payload.type === 'lock_update') {
                     console.log("SSE: Applying lock update");
                     const newLock = payload.lock;
@@ -343,35 +372,52 @@ export default function HuntPage() {
 
   const canClaimTurn = useMemo(() => {
     const result = (() => {
-        if (!huntDetails || !currentUser || huntDetails.state !== HuntState.ACTIVE) return false;
-        if (huntDetails.lastMoveUserId === currentUser.fid) return false;
-        
-        const currentLock = huntDetails.lock;
-        // --- DEBUG LOGGING ---
-        console.log('[canClaimTurn Check]', {
-            huntId: huntDetails?.id,
-            userId: currentUser?.fid,
-            huntState: huntDetails?.state,
-            lastMoveFid: huntDetails?.lastMoveUserId,
-            lockExists: !!currentLock,
-            lockPlayerFid: currentLock?.playerFid,
-            lockExpiresAt: currentLock?.expiresAt,
-            isCurrentUserLockHolder: currentLock?.playerFid === currentUser?.fid,
-            isLockExpired: currentLock ? new Date(currentLock.expiresAt) <= new Date() : undefined,
-            isLockActiveForOther: currentLock && currentLock.playerFid !== currentUser?.fid && new Date(currentLock.expiresAt) > new Date(),
-            now: new Date()
-        });
-        // --- END DEBUG LOGGING ---
-        if (currentLock && currentLock.playerFid !== currentUser.fid && new Date(currentLock.expiresAt) > new Date()) {
-            return false;
-        }
-        if (currentLock && new Date(currentLock.expiresAt) <= new Date()) {
-            return true;
-        }
-        if (!currentLock) {
-            return true;
-        }
+      if (!huntDetails || !currentUser || huntDetails.state !== HuntState.ACTIVE) {
+        console.log('[canClaimTurn Internal] Bailing: Invalid huntDetails, currentUser, or hunt state', { huntDetailsExists: !!huntDetails, currentUserExists: !!currentUser, state: huntDetails?.state });
         return false;
+      }
+
+      const currentLock = huntDetails.lock;
+      const lastMoveFid = huntDetails.lastMoveUserId;
+      const localCurrentUserFid = currentUser.fid;
+
+      console.log('[canClaimTurn Internal] Values:', {
+        huntId: huntDetails.id,
+        localCurrentUserFid,
+        lastMoveFid,
+        lockExists: !!currentLock,
+        lockPlayerFid: currentLock?.playerFid,
+        lockExpiresAt: currentLock?.expiresAt?.toISOString(),
+      });
+
+      // Scenario 1: No lock exists
+      if (!currentLock) {
+        const can = lastMoveFid !== localCurrentUserFid;
+        console.log('[canClaimTurn Internal] No lock. Can claim if not last mover.', { lastMoveFid, localCurrentUserFid, can });
+        return can;
+      }
+
+      // Scenario 2: Lock exists
+      const lockExpiresDate = new Date(currentLock.expiresAt);
+      const nowDate = new Date();
+      const isLockExpired = nowDate >= lockExpiresDate;
+      
+      console.log('[canClaimTurn Internal] Lock exists.', {
+        lockPlayerFid: currentLock.playerFid,
+        localCurrentUserFid,
+        isMyLock: currentLock.playerFid === localCurrentUserFid,
+        lockExpiresAtISO: lockExpiresDate.toISOString(),
+        nowDateISO: nowDate.toISOString(),
+        isLockExpired
+      });
+
+      if (isLockExpired) {
+        console.log('[canClaimTurn Internal] Lock expired. Allowing claim attempt.');
+        return true; 
+      } else {
+        console.log('[canClaimTurn Internal] Active lock exists. Disallowing claim.');
+        return false;
+      }
     })();
     console.log('[Debug ClaimTurn] canClaimTurn recalculated:', result, { huntId: huntDetails?.id, userId: currentUser?.fid, lastMoveUserId: huntDetails?.lastMoveUserId, lockPlayerFid: huntDetails?.lock?.playerFid });
     return result;
