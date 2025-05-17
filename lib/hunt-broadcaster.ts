@@ -24,6 +24,7 @@ function sanitizeHuntDetailsForClient(details: HuntDetails | null): Partial<Hunt
       details.state === HuntState.PENDING_CREATION ||
       details.state === HuntState.FAILED_CREATION) {
     const { treasurePositionX, treasurePositionY, salt, ...rest } = details;
+    console.log(treasurePositionX, treasurePositionY, salt);
     return rest;
   }
   // For completed hunts (WON, LOST), all details can be returned (excluding salt for now)
