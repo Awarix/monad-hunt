@@ -1129,9 +1129,16 @@ export default function HuntPage() {
         </div>
       </main>
       
-      {/* Render Footer */} 
-      {/* <GameFooter /> */}
-
+      {/* Display Latest Hint and 'Your Turn!' indicator below grid if it's player's turn */}
+      {isPlayerTurn && latestHint && (
+        <div className="flex flex-col items-center justify-center w-full px-2 md:px-4 mt-3 mb-3">
+          <CurrentTurnHintDisplay
+            latestHint={latestHint}
+            onShowAllHints={() => setIsHintPanelOpen(true)}
+          />
+        </div>
+      )}
+      
       {/* Render Hint Panel (Overlay) */} 
       {huntDetails && (
           <HintPanel 
@@ -1325,27 +1332,6 @@ export default function HuntPage() {
         </div>
       )}
 
-      {/* Game Grid - Centered */}
-      <div className="flex flex-col items-center justify-center w-full px-2 md:px-4 mt-2 mb-3 flex-grow">
-        {huntDetails && (
-          <Grid 
-            playerPosition={currentPosition}
-            moveHistory={huntDetails.moves.map(m => ({ x: m.positionX, y: m.positionY }))}
-            isCellTappable={isCellTappable}
-            onCellTap={handleGridCellClick}
-            isLoading={txStatus === 'submitting' || txStatus === 'confirming' || txStatus === 'updating_db' || isClaimingTurn}
-            isGameOver={isHuntEnded}
-          />
-        )}
-        {/* Display Latest Hint and 'Your Turn!' indicator below grid if it's player's turn */}
-        {isPlayerTurn && latestHint && (
-          <CurrentTurnHintDisplay
-            latestHint={latestHint}
-            onShowAllHints={() => setIsHintPanelOpen(true)}
-          />
-        )}
-      </div>
-      
       {/* Hint Panel - Fly-out */}
       <div className="fixed bottom-4 right-4 z-50">
         <button 
