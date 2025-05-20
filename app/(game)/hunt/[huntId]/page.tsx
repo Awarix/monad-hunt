@@ -1336,7 +1336,7 @@ export default function HuntPage() {
       <div className="fixed bottom-4 right-4 z-50">
         <button 
             onClick={() => setIsHintPanelOpen(!isHintPanelOpen)}
-            className="px-4 py-2 bg-[var(--theme-button-primary-bg)] text-[var(--theme-button-primary-text)] rounded-lg shadow-lg hover:bg-[var(--theme-button-primary-hover-bg)] transition-colors border-2 border-[var(--theme-border-color)] font-semibold"
+            className="px-4 py-2 bg-[var(--theme-button-primary-bg)] text-[var(--theme-button-primary-text)] rounded-lg shadow-lg border-2 border-[var(--theme-border-color)] font-semibold"
             aria-label={isHintPanelOpen ? "Close Hints" : "Open Hints"}
         >
             {isHintPanelOpen ? "Close Hints" : "View Hints"}
