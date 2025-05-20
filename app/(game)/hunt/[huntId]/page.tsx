@@ -30,6 +30,7 @@ import {
 import { HuntState } from '@prisma/client'; 
 import { START_POSITION, GRID_SIZE } from '@/lib/constants'; 
 import Image from 'next/image';
+import CurrentTurnHintDisplay from '@/components/game/CurrentTurnHintDisplay';
 
 // Get contract address from environment variable
 const managerContractAddress = process.env.NEXT_PUBLIC_TREASURE_HUNT_MANAGER_ADDRESS as `0x${string}` | undefined;
@@ -159,6 +160,23 @@ export default function HuntPage() {
   const [revealTxHash, setRevealTxHash] = useState<`0x${string}` | undefined>(undefined);
   // ---------------------------
 
+
+  // --- Derived State for UI ---
+  const latestHint = useMemo(() => {
+    if (huntDetails && huntDetails.moves && huntDetails.moves.length > 0) {
+      const lastMoveWithHint = huntDetails.moves[huntDetails.moves.length - 1];
+      return lastMoveWithHint?.hintGenerated || null;
+    }
+    return null;
+  }, [huntDetails?.moves]);
+
+  const isPlayerTurn = useMemo(() => {
+    if (!currentUser || !huntDetails || !huntDetails.lock || huntDetails.state !== HuntState.ACTIVE) {
+      return false;
+    }
+    return huntDetails.lock.playerFid === currentUser.fid && 
+           new Date(huntDetails.lock.expiresAt) > new Date();
+  }, [currentUser, huntDetails?.lock, huntDetails?.state]);
 
   // --- Farcaster User Handling --- 
   useEffect(() => {
@@ -1306,6 +1324,38 @@ export default function HuntPage() {
           </div>
         </div>
       )}
+
+      {/* Game Grid - Centered */}
+      <div className="flex flex-col items-center justify-center w-full px-2 md:px-4 mt-2 mb-3 flex-grow">
+        {huntDetails && (
+          <Grid 
+            playerPosition={currentPosition}
+            moveHistory={huntDetails.moves.map(m => ({ x: m.positionX, y: m.positionY }))}
+            isCellTappable={isCellTappable}
+            onCellTap={handleGridCellClick}
+            isLoading={txStatus === 'submitting' || txStatus === 'confirming' || txStatus === 'updating_db' || isClaimingTurn}
+            isGameOver={isHuntEnded}
+          />
+        )}
+        {/* Display Latest Hint and 'Your Turn!' indicator below grid if it's player's turn */}
+        {isPlayerTurn && latestHint && (
+          <CurrentTurnHintDisplay
+            latestHint={latestHint}
+            onShowAllHints={() => setIsHintPanelOpen(true)}
+          />
+        )}
+      </div>
+      
+      {/* Hint Panel - Fly-out */}
+      <div className="fixed bottom-4 right-4 z-50">
+        <button 
+            onClick={() => setIsHintPanelOpen(!isHintPanelOpen)}
+            className="px-4 py-2 bg-[var(--theme-button-primary-bg)] text-[var(--theme-button-primary-text)] rounded-lg shadow-lg hover:bg-[var(--theme-button-primary-hover-bg)] transition-colors border-2 border-[var(--theme-border-color)] font-semibold"
+            aria-label={isHintPanelOpen ? "Close Hints" : "Open Hints"}
+        >
+            {isHintPanelOpen ? "Close Hints" : "View Hints"}
+        </button>
+      </div>
 
     </div>
   );
