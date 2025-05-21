@@ -6,7 +6,7 @@ interface ChestIconProps {
   height?: string | number;
 }
 
-const RareChestIcon: React.FC<ChestIconProps> = ({ className, width = "100%", height = "100%" }) => (
+const RareChestIcon: React.FC<ChestIconProps> = ({ className, width, height }) => (
   <svg id="Rare_chest_30" enable-background="new 0 0 512 512" height={height} viewBox="0 0 512 512" width={width} xmlns="http://www.w3.org/2000/svg" className={className}>
     <path d="m27.5 166.168h457v318.332h-457z" fill="#93C5FD"/>
     <path d="m27.5 166.168h40v318.332h-40z" fill="#2563EB"/>
