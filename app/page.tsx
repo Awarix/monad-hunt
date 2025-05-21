@@ -22,15 +22,8 @@ export default function HomePage() {
         Welcome to Treasure Hunt!
       </h1>
       <p className="text-lg md:text-xl text-[var(--theme-text-secondary)] mb-10 text-center max-w-xl">
-        Join collaborative hunts on Monad Testnet. Make moves, follow hints, and mint your map NFT.
+        Join collaborative hunts on Monad Testnet. Make moves, follow hints to find the treasure.
       </p>
-      <p className="text-lg md:text-xl text-[var(--theme-text-primary)] mb-10 text-center max-w-xl">
-        Im still working on this. But I appreciate that you are here, my dear alfa tester :P
-      </p>
-      <p className="text-lg md:text-xl text-[var(--theme-text-primary)] mb-10 text-center max-w-xl">
-        If you have any feedback, please dm me @frontend. 
-      </p>
-
       {/* Button to navigate to the hunts list */}
       <Link href="/hunts">
         <button
