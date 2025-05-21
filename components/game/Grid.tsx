@@ -1,7 +1,7 @@
 import React from 'react';
 import { Position } from '@/types'; 
 import { GRID_SIZE } from '@/lib/constants'; 
-import { CommonChestIcon, RareChestIcon, EpicChestIcon } from '@/components/icons'; // Import chest icons
+// import { CommonChestIcon, RareChestIcon, EpicChestIcon } from '@/components/icons'; // Import chest icons
 
 interface GridProps {
   playerPosition: Position;
