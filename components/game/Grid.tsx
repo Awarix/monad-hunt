@@ -61,13 +61,13 @@ const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable
               {/* <div className=\"w-2 h-2 bg-black/50 rounded-full\"></div> */}
             </div>
           )}
-          {isTreasureCell && (
+          {/* {isTreasureCell && (
             <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
               {revealedTreasure?.rarity === 'COMMON' && <CommonChestIcon width={30} height={30} className="" />}
               {revealedTreasure?.rarity === 'RARE' && <RareChestIcon width={30} height={30} className="" />}
               {revealedTreasure?.rarity === 'EPIC' && <EpicChestIcon width={30} height={30} className="" />}
             </div>
-          )}
+          )} */}
         </div>
       );
     }
