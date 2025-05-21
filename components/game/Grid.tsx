@@ -63,9 +63,9 @@ const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable
           )}
           {isTreasureCell && (
             <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-              {revealedTreasure?.rarity === 'COMMON' && <CommonChestIcon className="w-full h-full p-0.5" />}
-              {revealedTreasure?.rarity === 'RARE' && <RareChestIcon className="w-full h-full p-0.5" />}
-              {revealedTreasure?.rarity === 'EPIC' && <EpicChestIcon className="w-full h-full p-0.5" />}
+              {revealedTreasure?.rarity === 'COMMON' && <CommonChestIcon className="w-30 h-30 p-0.5" />}
+              {revealedTreasure?.rarity === 'RARE' && <RareChestIcon className="w-30 h-30 p-0.5" />}
+              {revealedTreasure?.rarity === 'EPIC' && <EpicChestIcon className="w-30 h-30 p-0.5" />}
             </div>
           )}
         </div>
