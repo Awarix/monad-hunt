@@ -6,7 +6,7 @@
   },
   "frame": {
     "version": "1",
-    "name": "Treasure Hunt",
+    "name": "Monad Hunt",
     "iconUrl": "https://monad-hunt.vercel.app/logo.jpg",
     "homeUrl": "https://monad-hunt.vercel.app",
     "splashImageUrl": "https://monad-hunt.vercel.app/logo.jpg",
@@ -23,7 +23,7 @@
     ],
     "heroImageUrl": "https://monad-hunt.vercel.app/cover.png",
     "tagline": "Find the treasure",
-    "ogTitle": "Treasure Hunt",
+    "ogTitle": "Monad Hunt",
     "ogDescription": "Find the treasure in this classic treasure hunt game.",
     "ogImageUrl": "https://monad-hunt.vercel.app/cover.png"
   }

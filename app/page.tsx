@@ -19,7 +19,7 @@ export default function HomePage() {
         className="mb-8 rounded-full shadow-lg shadow-black/30"
       />
       <h1 className="text-4xl md:text-5xl font-bold mb-4 text-center font-mono text-[var(--theme-text-primary)]">
-        Welcome to Treasure Hunt!
+        Welcome to Monad Hunt!
       </h1>
       <p className="text-lg md:text-xl text-[var(--theme-text-secondary)] mb-10 text-center max-w-xl">
         Join collaborative hunts on Monad Testnet. Make moves, follow hints to find the treasure.

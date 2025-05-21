@@ -1,10 +1,10 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Treasure Hunt', 
+  title: 'Monad Hunt', 
   description: 'Find the treasure in this classic treasure hunt game.', 
   openGraph: {
-    title: 'Treasure Hunt', 
+    title: 'Monad Hunt', 
     description: 'Find the treasure in this classic treasure hunt game.', 
     images: [`https://monad-hunt.vercel.app/logo.jpg`] 
   },
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
         action: {
           type: 'launch_frame', 
           url: 'https://monad-hunt.vercel.app',
-          name: 'Treasure Hunt', 
+          name: 'Monad Hunt', 
           splashImageUrl: `https://monad-hunt.vercel.app/logo.jpg`, 
           splashBackgroundColor: '#111622' 
         }
