@@ -1,4 +1,4 @@
-import type { Position, Direction, Hunt, GameState } from '@/types';
+import type { Position, Direction, Hunt, GameState, TreasureRarity } from '@/types';
 import { GRID_SIZE, MAX_STEPS, START_POSITION } from './constants';
 
 /**
@@ -123,7 +123,7 @@ export const createNewHunt = (id: string, name: string, creatorId: string): Hunt
     const initialState: GameState = 'playing'; // Start directly in 'playing' state for MVP
 
     // Randomly assign treasure type
-    const treasureTypes = ['COMMON', 'RARE', 'EPIC']; // Use uppercase strings directly
+    const treasureTypes: TreasureRarity[] = ['COMMON', 'RARE', 'EPIC']; // Use uppercase strings directly
     const selectedTreasureType = treasureTypes[Math.floor(Math.random() * treasureTypes.length)];
 
     return {
