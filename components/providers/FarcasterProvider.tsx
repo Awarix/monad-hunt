@@ -67,6 +67,7 @@ export default function FarcasterProvider({
 
         // Call ready *after* attempting to set context, before setting isLoaded
         await sdk.actions.ready();
+        await sdk.actions.addFrame();
         console.log("Farcaster SDK is ready.");
 
       } catch (err) {

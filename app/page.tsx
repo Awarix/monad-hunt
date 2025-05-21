@@ -12,7 +12,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
       <Image 
-        src="/logo200.png" 
+        src="/logo.jpg" 
         alt="Treasure Hunt Logo"
         width={150}
         height={150}
