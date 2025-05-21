@@ -10,6 +10,8 @@ export type GameState = 'lobby' | 'playing' | 'won' | 'lost';
 
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
+export type TreasureRarity = 'COMMON' | 'RARE' | 'EPIC';
+
 // Add FarcasterUser type back
 export type FarcasterUser = {
   fid: number;
@@ -31,8 +33,7 @@ export type Hunt = {
   maxSteps: number;
   state: GameState;
   createdAt: number; // Timestamp
-  treasureType: string;
-  // Maybe add treasureType later? ('common', 'rare', 'epic')
+  treasureType: TreasureRarity;
 };
 
 // --- SSE Payload Types --- 

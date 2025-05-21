@@ -59,6 +59,7 @@ export default function HuntPage() {
   // --- Claim Turn State ---
   const [isClaimingTurn, setIsClaimingTurn] = useState(false);
   const [claimTurnError, setClaimTurnError] = useState<string | null>(null);
+  const [revealedTreasureCell, setRevealedTreasureCell] = useState<{ x: number; y: number; rarity: string } | null>(null);
 
   // --- Wagmi Status Logging ---
   useEffect(() => {
@@ -921,6 +922,16 @@ export default function HuntPage() {
       claimNftStatus // Added missing dependency (Fix #10)
   ]);
 
+    useEffect(() => {
+    if (isHuntEnded && huntDetails?.treasurePositionX && huntDetails?.treasurePositionY && huntDetails?.treasureType) {
+      setRevealedTreasureCell({
+        x: huntDetails.treasurePositionX,
+        y: huntDetails.treasurePositionY,
+        rarity: huntDetails.treasureType
+      });
+    }
+  }, [isHuntEnded, huntDetails]);
+
   // --- Add helper function for Grid --- 
   const isCellTappable = useCallback((cellPos: Position): boolean => {
     if (!doesUserHoldActiveLock) return false;
@@ -1124,7 +1135,8 @@ export default function HuntPage() {
                 isCellTappable={isCellTappable}
                 onCellTap={handleGridCellClick}
                 isLoading={txStatus === 'submitting' || txStatus === 'confirming' || txStatus === 'updating_db'}
-                isGameOver={!isHuntActive}
+                isGameOver={isHuntEnded}
+                revealedTreasure={revealedTreasureCell}
             />
         </div>
       </main>
@@ -1333,7 +1345,7 @@ export default function HuntPage() {
       )}
 
       {/* Hint Panel - Fly-out */}
-      <div className="fixed bottom-4 right-4 z-50">
+      {/* <div className="fixed bottom-4 right-4 z-50">
         <button 
             onClick={() => setIsHintPanelOpen(!isHintPanelOpen)}
             className="px-4 py-2 bg-[var(--theme-button-primary-bg)] text-[var(--theme-button-primary-text)] rounded-lg shadow-lg border-2 border-[var(--theme-border-color)] font-semibold"
@@ -1341,8 +1353,8 @@ export default function HuntPage() {
         >
             {isHintPanelOpen ? "Close Hints" : "View Hints"}
         </button>
-      </div>
-
+      </div> */}
+  
     </div>
   );
 } 

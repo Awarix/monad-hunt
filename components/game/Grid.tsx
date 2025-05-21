@@ -1,6 +1,7 @@
 import React from 'react';
 import { Position } from '@/types'; 
 import { GRID_SIZE } from '@/lib/constants'; 
+import { CommonChestIcon, RareChestIcon, EpicChestIcon } from '@/components/icons'; // Import chest icons
 
 interface GridProps {
   playerPosition: Position;
@@ -11,9 +12,10 @@ interface GridProps {
   onCellTap: (cellPos: Position) => void;
   isLoading: boolean; // Add isLoading prop
   isGameOver: boolean;
+  revealedTreasure?: { x: number; y: number; rarity: string } | null; // New prop
 }
 
-const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable, onCellTap, isLoading, isGameOver }) => {
+const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable, onCellTap, isLoading, isGameOver, revealedTreasure }) => {
   const cells = [];
   const pathSet = new Set(moveHistory.map(pos => `${pos.x}-${pos.y}`));
 
@@ -26,20 +28,23 @@ const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable
       const tappable = isCellTappable(currentPos);
       const isInteractable = !isLoading && !isGameOver && tappable;
 
-      let cellClasses = "w-full h-full border border-black/50 flex items-center justify-center transition-colors duration-150 rounded-sm"; // Base for all cells, slightly rounded
+      let cellClasses = "w-full h-full border border-black/50 flex items-center justify-center transition-colors duration-150 rounded-sm realtive"; // Added relative for treasure positioning
       
-      if (isPlayer) {
+      // Determine if the current cell is the treasure cell and game is over
+      const isTreasureCell = isGameOver && revealedTreasure && revealedTreasure.x === x && revealedTreasure.y === y;
+
+      if (isPlayer && !isTreasureCell) { // Don't show player if treasure is on the same spot and revealed
         cellClasses += " bg-transparent"; // Player icon is distinct
-      } else if (isPath) {
+      } else if (isPath && !isTreasureCell) {
         cellClasses += " bg-[var(--theme-grid-path-bg)] opacity-70"; // Path cells
-      } else {
+      } else if (!isTreasureCell) {
         cellClasses += " bg-[var(--theme-grid-cell-bg)]"; // Default empty cell (teal-100)
       }
 
-      if (isInteractable) {
+      if (isInteractable && !isTreasureCell) {
         // Apply a distinct background and ring for interactable cells, with a hover effect for desktop
         cellClasses += " cursor-pointer bg-amber-200 ring-2 ring-[var(--theme-border-color)] hover:bg-amber-300"; 
-      } else if (tappable && !isPlayer) { 
+      } else if (tappable && !isPlayer && !isTreasureCell) { 
          cellClasses += " opacity-50"; // Adjacent, not interactable (e.g. part of path already)
       }
 
@@ -47,12 +52,20 @@ const Grid: React.FC<GridProps> = ({ playerPosition, moveHistory, isCellTappable
         <div
           key={`${x}-${y}`}
           className={cellClasses}
-          onClick={() => isInteractable && onCellTap(currentPos)}
+          onClick={() => isInteractable && !isTreasureCell && onCellTap(currentPos)} // Prevent click on revealed treasure cell
+          style={isTreasureCell ? { backgroundColor: 'rgba(var(--treasure-reveal-bg-color, 255 237 111), 0.3)' } : {}} // Optional: Highlight treasure cell background
         >
-          {isPlayer && (
-            <div className="w-6 h-6 bg-[var(--theme-grid-player-bg)] rounded-full border-[3px] border-black shadow-md flex items-center justify-center">
+          {isPlayer && !isTreasureCell && (
+            <div className="w-6 h-6 bg-[var(--theme-grid-player-bg)] rounded-full border-[3px] border-black shadow-md flex items-center justify-center z-10">
               {/* Optional inner detail for player icon */}
               {/* <div className=\"w-2 h-2 bg-black/50 rounded-full\"></div> */}
+            </div>
+          )}
+          {isTreasureCell && (
+            <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+              {revealedTreasure?.rarity === 'COMMON' && <CommonChestIcon className="w-full h-full p-0.5" />}
+              {revealedTreasure?.rarity === 'RARE' && <RareChestIcon className="w-full h-full p-0.5" />}
+              {revealedTreasure?.rarity === 'EPIC' && <EpicChestIcon className="w-full h-full p-0.5" />}
             </div>
           )}
         </div>

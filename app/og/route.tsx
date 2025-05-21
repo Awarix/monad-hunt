@@ -1,14 +1,15 @@
 // app/og/route.tsx
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
-import { OgImageElement, OgImageProps, TreasureType } from '@/components/game/OgImage'; // Or your corrected path
+import { OgImageElement, OgImageProps} from '@/components/game/OgImage'; // Or your corrected path
 import { getGeistMonoSemiBoldFont } from '@/lib/fonts'; // Import the new font loader
+import { TreasureType } from '@prisma/client';
 
 export const runtime = 'edge'; // Or 'nodejs'
 
 const DEFAULT_OG_PROPS: OgImageProps = {
   huntId: '0',
-  treasureType: 'common',
+  treasureType: 'COMMON',
   moves: 0,
   maxMoves: 10,
   adventurers: 'Unknown',
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
       treasureY: safeParseInt(searchParams.get('treasureY'), DEFAULT_OG_PROPS.treasureY),
     };
 
-    const validTreasureTypes: TreasureType[] = ['common', 'rare', 'epic'];
+    const validTreasureTypes: TreasureType[] = ['COMMON', 'RARE', 'EPIC'];
     if (!validTreasureTypes.includes(props.treasureType)) {
       props.treasureType = DEFAULT_OG_PROPS.treasureType;
     }

@@ -2,8 +2,12 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import React, { useState } from 'react';
+import HowToPlayModal from '@/components/game/HowToPlayModal';
 
 export default function HomePage() {
+  const [isHowToPlayModalOpen, setIsHowToPlayModalOpen] = useState(false);
+
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-4">
@@ -36,6 +40,19 @@ export default function HomePage() {
           View Active Hunts
         </button>
       </Link>
+      <button
+        type="button"
+        onClick={() => setIsHowToPlayModalOpen(true)}
+        className="mt-6 px-8 py-3 bg-[var(--theme-button-primary-bg)] text-[var(--theme-button-primary-text)] font-bold rounded-full border-4 border-[var(--theme-border-color)] hover:scale-105 transition-transform shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--theme-button-primary-bg)]"
+      >
+        How to Play
+      </button>
+
+      {/* Render the modal component */}
+      <HowToPlayModal 
+        isOpen={isHowToPlayModalOpen} 
+        onClose={() => setIsHowToPlayModalOpen(false)} 
+      />
 
     </div>
   );
